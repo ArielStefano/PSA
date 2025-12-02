@@ -141,26 +141,36 @@ const HojaRegistroHoras = () => {
         </div>
 
         {/* KILÓMETROS + IMAGEN */}
-        <div className="grid grid-cols-3 border-b border-black">
-          <div className="col-span-2 flex">
-            <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-              Kilómetros:
-            </label>
-            <textarea
-              className="flex-1 px-2 py-1 outline-none resize-none h-20"
-              name="kilometros"
-            />
-          </div>
-          <div className="border-l border-black flex flex-col">
-            <div className="border-b border-black text-center py-1 font-semibold uppercase">
-              Imagen
-            </div>
-            <div className="flex-1 flex items-center justify-center text-[10px] px-1 text-center">
-              {/* Podés poner un input type="file" si querés subir imagen */}
-              <span>Adjuntar imagen / foto del chasis</span>
-            </div>
-          </div>
-        </div>
+<div className="grid grid-cols-3 border-b border-black">
+  <div className="col-span-2 flex">
+    <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+      Kilómetros:
+    </label>
+    <textarea
+      className="flex-1 px-2 py-1 outline-none resize-none h-20"
+      name="kilometros"
+    />
+  </div>
+
+  {/* Cuadro de IMAGEN con subida de archivo */}
+  <div className="border-l border-black flex flex-col">
+    <div className="border-b border-black text-center py-1 font-semibold uppercase">
+      Imagen
+    </div>
+    <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1">
+      <span className="text-[10px]">
+        Adjuntar imagen / foto del chasis
+      </span>
+      <input
+        type="file"
+        name="imagenChasis"
+        accept="image/*"
+        className="text-[10px]"
+      />
+    </div>
+  </div>
+</div>
+
 
         {/* MÓDULO */}
         <div className="border-b border-black text-center py-1 font-semibold uppercase">
