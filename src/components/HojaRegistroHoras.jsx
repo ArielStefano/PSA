@@ -8,16 +8,22 @@ const HojaRegistroHoras = () => {
   const [isDrawing, setIsDrawing] = useState(false);
 
   // ====== FIRMA: DIBUJO EN CANVAS ======
-  const getCoords = (e, canvas) => {
-    const rect = canvas.getBoundingClientRect();
-    // Soporta mouse y touch
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-    };
+const getCoords = (e, canvas) => {
+  const rect = canvas.getBoundingClientRect();
+
+  // Soporta mouse y touch
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+  // Relación entre el tamaño CSS y el tamaño real del canvas
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
   };
+};
 
   const startDrawing = (e) => {
     const canvas = canvasRef.current;
@@ -34,21 +40,38 @@ const HojaRegistroHoras = () => {
     setIsDrawing(true);
   };
 
-  const draw = (e) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const { x, y } = getCoords(e, canvas);
+ const startDrawing = (e) => {
+  e.preventDefault();
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const { x, y } = getCoords(e, canvas);
 
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#000000";
 
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  setIsDrawing(true);
+};
 
+const draw = (e) => {
+  if (!isDrawing) return;
+  e.preventDefault();
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const { x, y } = getCoords(e, canvas);
+
+  ctx.lineTo(x, y);
+  ctx.stroke();
+};
+
+const stopDrawing = (e) => {
+  if (e) e.preventDefault();
+  setIsDrawing(false);
+};
   const clearSignature = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
