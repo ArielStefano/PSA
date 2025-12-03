@@ -6,10 +6,10 @@ import html2canvas from "html2canvas";
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
+  const [imagenesUrls, setImagenesUrls] = useState([]); // <- previews múltiples
+
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-
-  // Contenedor que vamos a "fotografiar" para el PDF
   const pdfRef = useRef(null);
 
   // ====== FIRMA: COORDENADAS CORREGIDAS ======
@@ -74,9 +74,8 @@ const HojaRegistroHoras = () => {
     const input = pdfRef.current;
     if (!input) return;
 
-    // html2canvas genera un canvas del DOM
     const canvas = await html2canvas(input, {
-      scale: 2, // más resolución
+      scale: 2,
       useCORS: true,
     });
 
@@ -93,11 +92,9 @@ const HojaRegistroHoras = () => {
     let position = 0;
     let heightLeft = imgHeight;
 
-    // Primera página
     pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
     heightLeft -= pdfHeight;
 
-    // Si la imagen es más alta que una página, seguir agregando páginas
     while (heightLeft > 0) {
       position = heightLeft - imgHeight;
       pdf.addPage();
@@ -108,7 +105,7 @@ const HojaRegistroHoras = () => {
     pdf.save("hoja-registro.pdf");
   };
 
-  // ====== MANEJO DE IMAGEN DEL CHASIS (PREVIEW) ======
+  // ====== IMAGEN CHASIS (PREVIEW 5x5 cm) ======
   const handleImagenChasisChange = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) {
@@ -117,6 +114,22 @@ const HojaRegistroHoras = () => {
     }
     const url = URL.createObjectURL(file);
     setImagenChasisUrl(url);
+  };
+
+  // ====== IMÁGENES GENERALES (MULTIPLES PREVIEWS 5x5 cm) ======
+  const handleImagenesChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    const urls = files.map((file) => URL.createObjectURL(file));
+    setImagenesUrls(urls);
+  };
+
+  // tamaño aproximado 5x5 cm ≈ 190x190 px
+  const imageBoxStyle = {
+    width: "190px",
+    height: "190px",
+    objectFit: "contain",
+    border: "1px solid #000",
+    backgroundColor: "#fff",
   };
 
   return (
@@ -246,7 +259,7 @@ const HojaRegistroHoras = () => {
               <div className="border-b border-black text-center py-1 font-semibold uppercase">
                 Imagen
               </div>
-              <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1">
+              <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1 py-1">
                 <span className="text-[10px]">
                   Adjuntar imagen / foto del chasis
                 </span>
@@ -261,7 +274,7 @@ const HojaRegistroHoras = () => {
                   <img
                     src={imagenChasisUrl}
                     alt="Chasis"
-                    className="mt-1 max-h-16 object-contain"
+                    style={imageBoxStyle}
                   />
                 )}
               </div>
@@ -312,18 +325,32 @@ const HojaRegistroHoras = () => {
             />
           </div>
 
-          {/* IMÁGENES GENERALES (solo input, si quieres también se puede hacer preview) */}
+          {/* IMÁGENES GENERALES CON PREVIEW */}
           <div className="flex border-b border-black">
             <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
               Imágenes:
             </label>
-            <div className="flex-1 flex items-center px-2 py-1">
+            <div className="flex-1 flex flex-col px-2 py-1 gap-2">
               <input
                 type="file"
                 multiple
                 className="text-[10px]"
                 name="imagenes"
+                onChange={handleImagenesChange}
+                accept="image/*"
               />
+              {imagenesUrls.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {imagenesUrls.map((url, idx) => (
+                    <img
+                      key={idx}
+                      src={url}
+                      alt={`Imagen ${idx + 1}`}
+                      style={imageBoxStyle}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
