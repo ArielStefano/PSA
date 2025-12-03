@@ -1,10 +1,11 @@
 // src/components/HojaRegistroHoras.jsx
-import React from "react";
+import React, { useState } from "react";
 
 const HojaRegistroHoras = () => {
+  const [responsableEquipo, setResponsableEquipo] = useState("");
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Acá vas a enviar los datos al backend / API
     console.log("Formulario enviado");
   };
 
@@ -30,32 +31,15 @@ const HojaRegistroHoras = () => {
           </div>
         </div>
 
-        {/* CLIENTE */}
-        <div className="flex border-b border-black">
-          <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-            Cliente:
-          </label>
-          <input
-            className="flex-1 px-2 py-1 outline-none"
-            name="cliente"
-            type="text"
-          />
-        </div>
+        {/* 🔴 FILAS ELIMINADAS:
+            - CLIENTE (fila grande)
+            - RESPONSABLE EQUIPO (fila grande)
+        */}
 
-        {/* RESPONSABLE / NÚMERO DE EQUIPO */}
+        {/* NÚMERO DE EQUIPO */}
         <div className="flex border-b border-black">
           <div className="flex-1 border-r border-black">
             <div className="flex">
-              <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                Responsable equipo:
-              </label>
-              <input
-                className="flex-1 px-2 py-1 outline-none"
-                name="responsableEquipo"
-                type="text"
-              />
-            </div>
-            <div className="flex border-t border-black">
               <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase leading-tight">
                 Número de equipo
                 <span className="block normal-case text-[10px]">
@@ -71,9 +55,9 @@ const HojaRegistroHoras = () => {
           </div>
         </div>
 
-        {/* FECHA / UBICACIÓN / CLIENTE-RESPONSABLE */}
+        {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE EQUIPO (este RESPONSABLE es el que usamos para la firma) */}
         <div className="grid grid-cols-12 border-b border-black">
-          {/* Fecha de inspección */}
+          {/* Fecha de inspección + ubicación */}
           <div className="col-span-6 border-r border-black">
             <div className="flex">
               <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
@@ -109,7 +93,7 @@ const HojaRegistroHoras = () => {
             </div>
           </div>
 
-          {/* Cliente / Responsable (lado derecho) */}
+          {/* Cliente + Responsable equipo (este nombre se copiará bajo la firma) */}
           <div className="col-span-6">
             <div className="border-b border-black flex">
               <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase">
@@ -117,7 +101,7 @@ const HojaRegistroHoras = () => {
               </label>
               <input
                 className="flex-1 px-2 py-1 outline-none"
-                name="cliente2"
+                name="clienteInspeccion"
                 type="text"
               />
             </div>
@@ -128,8 +112,10 @@ const HojaRegistroHoras = () => {
               </label>
               <input
                 className="flex-1 px-2 py-1 outline-none"
-                name="responsableEquipo2"
+                name="responsableEquipo"
                 type="text"
+                value={responsableEquipo}
+                onChange={(e) => setResponsableEquipo(e.target.value)}
               />
             </div>
           </div>
@@ -140,37 +126,36 @@ const HojaRegistroHoras = () => {
           Chasis
         </div>
 
-        {/* KILÓMETROS + IMAGEN */}
-<div className="grid grid-cols-3 border-b border-black">
-  <div className="col-span-2 flex">
-    <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-      Kilómetros:
-    </label>
-    <textarea
-      className="flex-1 px-2 py-1 outline-none resize-none h-20"
-      name="kilometros"
-    />
-  </div>
+        {/* KILÓMETROS + IMAGEN (con input file en la parte derecha) */}
+        <div className="grid grid-cols-3 border-b border-black">
+          <div className="col-span-2 flex">
+            <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+              Kilómetros:
+            </label>
+            <textarea
+              className="flex-1 px-2 py-1 outline-none resize-none h-20"
+              name="kilometros"
+            />
+          </div>
 
-  {/* Cuadro de IMAGEN con subida de archivo */}
-  <div className="border-l border-black flex flex-col">
-    <div className="border-b border-black text-center py-1 font-semibold uppercase">
-      Imagen
-    </div>
-    <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1">
-      <span className="text-[10px]">
-        Adjuntar imagen / foto del chasis
-      </span>
-      <input
-        type="file"
-        name="imagenChasis"
-        accept="image/*"
-        className="text-[10px]"
-      />
-    </div>
-  </div>
-</div>
-
+          {/* Cuadro de IMAGEN con subida de archivo */}
+          <div className="border-l border-black flex flex-col">
+            <div className="border-b border-black text-center py-1 font-semibold uppercase">
+              Imagen
+            </div>
+            <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1">
+              <span className="text-[10px]">
+                Adjuntar imagen / foto del chasis
+              </span>
+              <input
+                type="file"
+                name="imagenChasis"
+                accept="image/*"
+                className="text-[10px]"
+              />
+            </div>
+          </div>
+        </div>
 
         {/* MÓDULO */}
         <div className="border-b border-black text-center py-1 font-semibold uppercase">
@@ -216,13 +201,12 @@ const HojaRegistroHoras = () => {
           />
         </div>
 
-        {/* IMÁGENES */}
+        {/* IMÁGENES (generales) */}
         <div className="flex border-b border-black">
           <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
             Imágenes:
           </label>
           <div className="flex-1 flex items-center px-2 py-1">
-            {/* Podés cambiar esto por múltiples inputs de archivo */}
             <input
               type="file"
               multiple
@@ -230,6 +214,18 @@ const HojaRegistroHoras = () => {
               name="imagenes"
             />
           </div>
+        </div>
+
+        {/* 🟩 ESPACIO PARA FIRMA DIGITAL + NOMBRE DEL RESPONSABLE */}
+        <div className="border-b border-black px-4 py-3">
+          <div className="border border-black h-24 flex items-center justify-center">
+            <span className="text-xs text-slate-500 text-center">
+              Espacio para firma digital del responsable del equipo
+            </span>
+          </div>
+          <p className="text-xs text-center mt-2">
+            {responsableEquipo || "Nombre del responsable del equipo"}
+          </p>
         </div>
 
         {/* BOTÓN ENVIAR */}
