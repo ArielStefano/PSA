@@ -1,14 +1,13 @@
 // src/components/HojaRegistroHoras.jsx
 import React, { useState, useRef } from "react";
 import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
   const [imagenesUrls, setImagenesUrls] = useState([]);
 
-  // Fecha actual (se calcula una sola vez al montar el componente)
+  // Fecha actual
   const [dia, setDia] = useState(() =>
     String(new Date().getDate()).padStart(2, "0")
   );
@@ -21,9 +20,8 @@ const HojaRegistroHoras = () => {
 
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const pdfRef = useRef(null);
 
-  // ====== FIRMA: COORDENADAS CORREGIDAS ======
+  // ====== FIRMA: COORDENADAS CORREGIDAS PARA EL CANVAS ======
   const getCoords = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
 
@@ -79,61 +77,46 @@ const HojaRegistroHoras = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  // ====== GENERAR PDF (HORIZONTAL) AJUSTADO A LA HOJA ======
-  const handleGeneratePdf = async (e) => {
-    e.preventDefault();
-    const input = pdfRef.current;
-    if (!input) return;
-
-    const canvas = await html2canvas(input, {
-      scale: 2,
-      useCORS: true,
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-
-    // "l" = landscape (horizontal)
-    const pdf = new jsPDF("l", "mm", "a4");
-
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-
-    const imgProps = pdf.getImageProperties(imgData);
-
-    const ratio = Math.min(
-      pdfWidth / imgProps.width,
-      pdfHeight / imgProps.height
-    );
-
-    const imgWidth = imgProps.width * ratio;
-    const imgHeight = imgProps.height * ratio;
-
-    const x = (pdfWidth - imgWidth) / 2;
-    const y = (pdfHeight - imgHeight) / 2;
-
-    pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight);
-    pdf.save("hoja-registro.pdf");
-  };
-
-  // ====== IMAGEN CHASIS (PREVIEW 5x5 cm) ======
+  // ====== IMAGEN CHASIS (GUARDADA COMO DATA URL PARA USARLA EN PDF) ======
   const handleImagenChasisChange = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) {
       setImagenChasisUrl(null);
       return;
     }
-    const url = URL.createObjectURL(file);
-    setImagenChasisUrl(url);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImagenChasisUrl(reader.result); // dataURL
+    };
+    reader.readAsDataURL(file);
   };
 
-  // ====== IMÁGENES GENERALES (MULTIPLES PREVIEWS 5x5 cm) ======
+  // ====== IMÁGENES GENERALES (MÚLTIPLES DATA URL) ======
   const handleImagenesChange = (e) => {
     const files = Array.from(e.target.files || []);
-    const urls = files.map((file) => URL.createObjectURL(file));
-    setImagenesUrls(urls);
+    if (!files.length) {
+      setImagenesUrls([]);
+      return;
+    }
+
+    const urls = [];
+    let loaded = 0;
+
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        urls.push(reader.result); // dataURL
+        loaded += 1;
+        if (loaded === files.length) {
+          setImagenesUrls(urls);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  // ~5x5 cm ≈ 190x190 px
+  // ~5x5 cm ≈ 190x190 px para la vista en pantalla
   const imageBoxStyle = {
     width: "190px",
     height: "190px",
@@ -147,17 +130,190 @@ const HojaRegistroHoras = () => {
   const dataTextAreaClass =
     "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
+  // ====== GENERAR PDF PROFESIONAL CON jsPDF ======
+  const handleGeneratePdf = async (e) => {
+    e.preventDefault();
+
+    const form = e.target;
+    const formData = new FormData(form);
+
+    const numeroEquipo = formData.get("numeroEquipo") || "";
+    const ubicacion = formData.get("ubicacion") || "";
+    const clienteInspeccion = formData.get("clienteInspeccion") || "";
+    const km = formData.get("kilometros") || "";
+    const horasGenerales = formData.get("horasGenerales") || "";
+    const horasEspecificas = formData.get("horasEspecificas") || "";
+    const detalles = formData.get("detalles") || "";
+
+    const fechaStr = `${dia}/${mes}/${anio}`;
+
+    // Firma como imagen (dataURL)
+    let firmaDataUrl = null;
+    if (canvasRef.current) {
+      firmaDataUrl = canvasRef.current.toDataURL("image/png");
+    }
+
+    // Crear PDF en horizontal
+    const doc = new jsPDF("l", "mm", "a4");
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
+
+    // Columna izquierda (texto) y derecha (imágenes)
+    const leftWidth = pageWidth * 0.55;
+    const rightX = margin + leftWidth + 5;
+
+    // Encabezado
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("ASTAP", margin, margin + 5);
+
+    doc.setFontSize(12);
+    doc.text(
+      "HOJA DE REGISTRO DE HORAS Y KILOMETRAJES EQUIPOS HIDROSUCCIONADORES",
+      margin + 35,
+      margin + 5
+    );
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+
+    let y = margin + 15;
+
+    // Datos principales (lado izquierdo)
+    doc.text(`Cliente: ${clienteInspeccion}`, margin, y);
+    y += 5;
+    doc.text(`Responsable equipo: ${responsableEquipo}`, margin, y);
+    y += 5;
+    doc.text(`N° equipo: ${numeroEquipo}`, margin, y);
+    y += 5;
+    doc.text(`Fecha: ${fechaStr}`, margin, y);
+    y += 5;
+    doc.text(`Ubicación: ${ubicacion}`, margin, y);
+    y += 10;
+
+    // Sección Kilómetros
+    doc.setFont("helvetica", "bold");
+    doc.text("Kilómetros:", margin, y);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+    doc.text(km.toString(), margin, y, { maxWidth: leftWidth - margin });
+    y += 10;
+
+    // Sección Horas generales
+    doc.setFont("helvetica", "bold");
+    doc.text("Horas (generales):", margin, y);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+    doc.text(horasGenerales.toString(), margin, y, {
+      maxWidth: leftWidth - margin,
+    });
+    y += 10;
+
+    // Sección Horas específicas
+    doc.setFont("helvetica", "bold");
+    doc.text("Horas (específicas):", margin, y);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+    doc.text(horasEspecificas.toString(), margin, y, {
+      maxWidth: leftWidth - margin,
+    });
+    y += 10;
+
+    // Sección Detalles
+    doc.setFont("helvetica", "bold");
+    doc.text("Detalles:", margin, y);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+    doc.text(detalles.toString(), margin, y, {
+      maxWidth: leftWidth - margin,
+    });
+
+    // ================= IMÁGENES (COLUMNA DERECHA) =================
+    let imgY = margin + 15;
+
+    const addFittedImage = (dataUrl, x, y, boxW, boxH) => {
+      if (!dataUrl) return;
+      const props = doc.getImageProperties(dataUrl);
+      const ratio = Math.min(boxW / props.width, boxH / props.height);
+      const w = props.width * ratio;
+      const h = props.height * ratio;
+      const offsetX = x + (boxW - w) / 2;
+      const offsetY = y + (boxH - h) / 2;
+      doc.addImage(dataUrl, "PNG", offsetX, offsetY, w, h);
+    };
+
+    // Imagen chasis (bloque grande arriba)
+    const chasisBoxW = pageWidth - rightX - margin;
+    const chasisBoxH = 60;
+
+    if (imagenChasisUrl) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Imagen chasis:", rightX, imgY - 2);
+      doc.setDrawColor(0);
+      doc.rect(rightX, imgY, chasisBoxW, chasisBoxH);
+      addFittedImage(imagenChasisUrl, rightX, imgY, chasisBoxW, chasisBoxH);
+      imgY += chasisBoxH + 8;
+    }
+
+    // Otras imágenes (en grilla bajo chasis)
+    const otherBoxW = (pageWidth - rightX - margin - 5) / 2; // 2 columnas
+    const otherBoxH = 40;
+    let col = 0;
+
+    if (imagenesUrls.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Imágenes adicionales:", rightX, imgY - 2);
+
+      imgY += 2;
+
+      imagenesUrls.slice(0, 4).forEach((url, index) => {
+        const x = rightX + col * (otherBoxW + 5);
+        const yPos = imgY;
+        doc.setDrawColor(0);
+        doc.rect(x, yPos, otherBoxW, otherBoxH);
+        addFittedImage(url, x, yPos, otherBoxW, otherBoxH);
+
+        col += 1;
+        if (col === 2) {
+          col = 0;
+          imgY += otherBoxH + 5;
+        }
+      });
+    }
+
+    // ================= FIRMA (ABAJO) =================
+    const firmaBoxY = pageHeight - 40;
+    const firmaBoxW = 60;
+    const firmaBoxH = 25;
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Firma responsable:", margin, firmaBoxY - 2);
+    doc.setDrawColor(0);
+    doc.rect(margin, firmaBoxY, firmaBoxW, firmaBoxH);
+
+    if (firmaDataUrl) {
+      addFittedImage(firmaDataUrl, margin, firmaBoxY, firmaBoxW, firmaBoxH);
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      responsableEquipo || "",
+      margin,
+      firmaBoxY + firmaBoxH + 5
+    );
+
+    doc.save("hoja-registro.pdf");
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <form
         onSubmit={handleGeneratePdf}
         className="w-full max-w-5xl text-[11px] md:text-xs"
       >
-        {/* Todo lo que está dentro de pdfRef es lo que irá al PDF */}
-        <div
-          ref={pdfRef}
-          className="bg-white border-4 border-blue-600 w-full"
-        >
+        {/* CONTENIDO VISUAL (FORMULARIO) */}
+        <div className="bg-white border-4 border-blue-600 w-full">
           {/* ENCABEZADO */}
           <div className="flex border-b border-black">
             <div className="w-28 md:w-32 border-r border-black flex items-center justify-center p-2">
@@ -193,7 +349,6 @@ const HojaRegistroHoras = () => {
           <div className="grid grid-cols-12 border-b border-black">
             <div className="col-span-6 border-r border-black">
               <div className="flex">
-                {/* TEXTO CAMBIADO: FECHA */}
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                   Fecha:
                 </label>
@@ -394,11 +549,9 @@ const HojaRegistroHoras = () => {
               <p className="text-xs text-center flex-1 text-blue-600">
                 {responsableEquipo || "Nombre del responsable del equipo"}
               </p>
-              {/* Ignorado por html2canvas => no sale en PDF */}
               <button
                 type="button"
                 onClick={clearSignature}
-                data-html2canvas-ignore="true"
                 className="ml-4 px-2 py-1 text-[10px] border border-slate-400 rounded hover:bg-slate-100"
               >
                 Borrar firma
@@ -407,7 +560,7 @@ const HojaRegistroHoras = () => {
           </div>
         </div>
 
-        {/* BOTÓN GENERAR PDF (no entra en la captura) */}
+        {/* BOTÓN GENERAR PDF */}
         <div className="flex justify-end p-3">
           <button
             type="submit"
