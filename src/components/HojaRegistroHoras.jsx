@@ -68,7 +68,7 @@ const HojaRegistroHoras = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  // ====== GENERAR PDF (LANDSCAPE) A PARTIR DEL FORMULARIO ======
+  // ====== GENERAR PDF (VERTICAL) AJUSTADO AL TAMAÑO DE LA HOJA ======
   const handleGeneratePdf = async (e) => {
     e.preventDefault();
     const input = pdfRef.current;
@@ -80,29 +80,29 @@ const HojaRegistroHoras = () => {
     });
 
     const imgData = canvas.toDataURL("image/png");
-    // "l" = landscape (horizontal)
-    const pdf = new jsPDF("l", "mm", "a4");
+    // "p" = portrait (vertical)
+    const pdf = new jsPDF("p", "mm", "a4");
 
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
 
     const imgProps = pdf.getImageProperties(imgData);
-    const imgWidth = pdfWidth;
-    const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-    let position = 0;
-    let heightLeft = imgHeight;
+    // Calculamos el mejor ajuste para que TODA la imagen
+    // quepa en UNA sola hoja, lo más grande posible
+    const ratio = Math.min(
+      pdfWidth / imgProps.width,
+      pdfHeight / imgProps.height
+    );
 
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pdfHeight;
+    const imgWidth = imgProps.width * ratio;
+    const imgHeight = imgProps.height * ratio;
 
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-    }
+    // Centramos la imagen en la página
+    const x = (pdfWidth - imgWidth) / 2;
+    const y = (pdfHeight - imgHeight) / 2;
 
+    pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight);
     pdf.save("hoja-registro.pdf");
   };
 
