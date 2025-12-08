@@ -6,7 +6,7 @@ import html2canvas from "html2canvas";
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
-  const [imagenesUrls, setImagenesUrls] = useState([]); // <- previews múltiples
+  const [imagenesUrls, setImagenesUrls] = useState([]);
 
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -68,7 +68,7 @@ const HojaRegistroHoras = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  // ====== GENERAR PDF A PARTIR DEL FORMULARIO (CAPTURA DE PANTALLA) ======
+  // ====== GENERAR PDF (LANDSCAPE) A PARTIR DEL FORMULARIO ======
   const handleGeneratePdf = async (e) => {
     e.preventDefault();
     const input = pdfRef.current;
@@ -80,7 +80,8 @@ const HojaRegistroHoras = () => {
     });
 
     const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
+    // "l" = landscape (horizontal)
+    const pdf = new jsPDF("l", "mm", "a4");
 
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -132,6 +133,11 @@ const HojaRegistroHoras = () => {
     backgroundColor: "#fff",
   };
 
+  // Clase para los datos ingresados (azul)
+  const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
+  const dataTextAreaClass =
+    "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
+
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <form
@@ -146,7 +152,8 @@ const HojaRegistroHoras = () => {
           {/* ENCABEZADO */}
           <div className="flex border-b border-black">
             <div className="w-28 md:w-32 border-r border-black flex items-center justify-center p-2">
-              <span className="font-bold text-lg">astap</span>
+              {/* ASTAP en mayúsculas */}
+              <span className="font-bold text-lg uppercase">ASTAP</span>
             </div>
             <div className="flex-1 flex items-center justify-center px-2">
               <h1 className="text-center font-bold uppercase leading-tight">
@@ -166,7 +173,7 @@ const HojaRegistroHoras = () => {
                   </span>
                 </label>
                 <input
-                  className="flex-1 px-2 py-1 outline-none"
+                  className={dataInputClass}
                   name="numeroEquipo"
                   type="text"
                 />
@@ -183,17 +190,17 @@ const HojaRegistroHoras = () => {
                 </label>
                 <div className="flex-1 grid grid-cols-3">
                   <input
-                    className="border-r border-black px-2 py-1 outline-none text-center"
+                    className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
                     name="dia"
                     placeholder="DD"
                   />
                   <input
-                    className="border-r border-black px-2 py-1 outline-none text-center"
+                    className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
                     name="mes"
                     placeholder="MM"
                   />
                   <input
-                    className="px-2 py-1 outline-none text-center"
+                    className="px-2 py-1 outline-none text-center text-blue-600"
                     name="anio"
                     placeholder="AAAA"
                   />
@@ -204,7 +211,7 @@ const HojaRegistroHoras = () => {
                   Ubicación:
                 </label>
                 <input
-                  className="flex-1 px-2 py-1 outline-none"
+                  className={dataInputClass}
                   name="ubicacion"
                   type="text"
                 />
@@ -217,7 +224,7 @@ const HojaRegistroHoras = () => {
                   Cliente:
                 </label>
                 <input
-                  className="flex-1 px-2 py-1 outline-none"
+                  className={dataInputClass}
                   name="clienteInspeccion"
                   type="text"
                 />
@@ -228,7 +235,7 @@ const HojaRegistroHoras = () => {
                   <span className="block">equipo:</span>
                 </label>
                 <input
-                  className="flex-1 px-2 py-1 outline-none"
+                  className={dataInputClass}
                   name="responsableEquipo"
                   type="text"
                   value={responsableEquipo}
@@ -250,7 +257,7 @@ const HojaRegistroHoras = () => {
                 Kilómetros:
               </label>
               <textarea
-                className="flex-1 px-2 py-1 outline-none resize-none h-20"
+                className={`${dataTextAreaClass} h-20`}
                 name="kilometros"
               />
             </div>
@@ -293,7 +300,7 @@ const HojaRegistroHoras = () => {
               <span className="normal-case"> (generales)</span>
             </label>
             <textarea
-              className="flex-1 px-2 py-1 outline-none resize-none h-16"
+              className={`${dataTextAreaClass} h-16`}
               name="horasGenerales"
             />
           </div>
@@ -305,7 +312,7 @@ const HojaRegistroHoras = () => {
               <span className="normal-case"> (específicas)</span>
             </label>
             <textarea
-              className="flex-1 px-2 py-1 outline-none resize-none h-16"
+              className={`${dataTextAreaClass} h-16`}
               name="horasEspecificas"
             />
           </div>
@@ -320,7 +327,7 @@ const HojaRegistroHoras = () => {
               </div>
             </div>
             <textarea
-              className="flex-1 px-2 py-1 outline-none resize-none h-20"
+              className={`${dataTextAreaClass} h-20`}
               name="detalles"
             />
           </div>
@@ -372,12 +379,14 @@ const HojaRegistroHoras = () => {
               />
             </div>
             <div className="flex justify-between items-center mt-1">
-              <p className="text-xs text-center flex-1">
+              <p className="text-xs text-center flex-1 text-blue-600">
                 {responsableEquipo || "Nombre del responsable del equipo"}
               </p>
+              {/* NO aparece en el PDF gracias a data-html2canvas-ignore */}
               <button
                 type="button"
                 onClick={clearSignature}
+                data-html2canvas-ignore="true"
                 className="ml-4 px-2 py-1 text-[10px] border border-slate-400 rounded hover:bg-slate-100"
               >
                 Borrar firma
@@ -386,7 +395,7 @@ const HojaRegistroHoras = () => {
           </div>
         </div>
 
-        {/* BOTÓN GENERAR PDF */}
+        {/* BOTÓN GENERAR PDF (no se captura porque está fuera de pdfRef) */}
         <div className="flex justify-end p-3">
           <button
             type="submit"
