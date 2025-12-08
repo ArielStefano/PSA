@@ -68,7 +68,7 @@ const HojaRegistroHoras = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  // ====== GENERAR PDF (VERTICAL) AJUSTADO AL TAMAÑO DE LA HOJA ======
+  // ====== GENERAR PDF (HORIZONTAL) AJUSTADO A LA HOJA ======
   const handleGeneratePdf = async (e) => {
     e.preventDefault();
     const input = pdfRef.current;
@@ -80,16 +80,17 @@ const HojaRegistroHoras = () => {
     });
 
     const imgData = canvas.toDataURL("image/png");
-    // "p" = portrait (vertical)
-    const pdf = new jsPDF("p", "mm", "a4");
+
+    // "l" = landscape (horizontal)
+    const pdf = new jsPDF("l", "mm", "a4");
 
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
 
     const imgProps = pdf.getImageProperties(imgData);
 
-    // Calculamos el mejor ajuste para que TODA la imagen
-    // quepa en UNA sola hoja, lo más grande posible
+    // Ajuste máximo para que toda la imagen
+    // quepa en UNA hoja horizontal
     const ratio = Math.min(
       pdfWidth / imgProps.width,
       pdfHeight / imgProps.height
@@ -98,7 +99,6 @@ const HojaRegistroHoras = () => {
     const imgWidth = imgProps.width * ratio;
     const imgHeight = imgProps.height * ratio;
 
-    // Centramos la imagen en la página
     const x = (pdfWidth - imgWidth) / 2;
     const y = (pdfHeight - imgHeight) / 2;
 
@@ -124,7 +124,7 @@ const HojaRegistroHoras = () => {
     setImagenesUrls(urls);
   };
 
-  // tamaño aproximado 5x5 cm ≈ 190x190 px
+  // ~5x5 cm ≈ 190x190 px
   const imageBoxStyle = {
     width: "190px",
     height: "190px",
@@ -133,7 +133,7 @@ const HojaRegistroHoras = () => {
     backgroundColor: "#fff",
   };
 
-  // Clase para los datos ingresados (azul)
+  // Clases para datos en azul
   const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
   const dataTextAreaClass =
     "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
@@ -152,7 +152,6 @@ const HojaRegistroHoras = () => {
           {/* ENCABEZADO */}
           <div className="flex border-b border-black">
             <div className="w-28 md:w-32 border-r border-black flex items-center justify-center p-2">
-              {/* ASTAP en mayúsculas */}
               <span className="font-bold text-lg uppercase">ASTAP</span>
             </div>
             <div className="flex-1 flex items-center justify-center px-2">
@@ -382,7 +381,7 @@ const HojaRegistroHoras = () => {
               <p className="text-xs text-center flex-1 text-blue-600">
                 {responsableEquipo || "Nombre del responsable del equipo"}
               </p>
-              {/* NO aparece en el PDF gracias a data-html2canvas-ignore */}
+              {/* Ignorado por html2canvas => no sale en PDF */}
               <button
                 type="button"
                 onClick={clearSignature}
@@ -395,7 +394,7 @@ const HojaRegistroHoras = () => {
           </div>
         </div>
 
-        {/* BOTÓN GENERAR PDF (no se captura porque está fuera de pdfRef) */}
+        {/* BOTÓN GENERAR PDF (no entra en la captura) */}
         <div className="flex justify-end p-3">
           <button
             type="submit"
