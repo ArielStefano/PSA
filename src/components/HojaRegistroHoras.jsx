@@ -8,6 +8,17 @@ const HojaRegistroHoras = () => {
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
   const [imagenesUrls, setImagenesUrls] = useState([]);
 
+  // Fecha actual (se calcula una sola vez al montar el componente)
+  const [dia, setDia] = useState(() =>
+    String(new Date().getDate()).padStart(2, "0")
+  );
+  const [mes, setMes] = useState(() =>
+    String(new Date().getMonth() + 1).padStart(2, "0")
+  );
+  const [anio, setAnio] = useState(() =>
+    String(new Date().getFullYear())
+  );
+
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const pdfRef = useRef(null);
@@ -89,8 +100,6 @@ const HojaRegistroHoras = () => {
 
     const imgProps = pdf.getImageProperties(imgData);
 
-    // Ajuste máximo para que toda la imagen
-    // quepa en UNA hoja horizontal
     const ratio = Math.min(
       pdfWidth / imgProps.width,
       pdfHeight / imgProps.height
@@ -184,24 +193,28 @@ const HojaRegistroHoras = () => {
           <div className="grid grid-cols-12 border-b border-black">
             <div className="col-span-6 border-r border-black">
               <div className="flex">
+                {/* TEXTO CAMBIADO: FECHA */}
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                  Fecha de inspección:
+                  Fecha:
                 </label>
                 <div className="flex-1 grid grid-cols-3">
                   <input
                     className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
                     name="dia"
-                    placeholder="DD"
+                    value={dia}
+                    onChange={(e) => setDia(e.target.value)}
                   />
                   <input
                     className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
                     name="mes"
-                    placeholder="MM"
+                    value={mes}
+                    onChange={(e) => setMes(e.target.value)}
                   />
                   <input
                     className="px-2 py-1 outline-none text-center text-blue-600"
                     name="anio"
-                    placeholder="AAAA"
+                    value={anio}
+                    onChange={(e) => setAnio(e.target.value)}
                   />
                 </div>
               </div>
