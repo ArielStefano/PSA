@@ -6,6 +6,58 @@ import { jsPDF } from "jspdf";
 // const ASTAP_LOGO_BASE64 = "data:image/png;base64,AAAA....";
 const ASTAP_LOGO_BASE64 = null;
 
+// ==== UTILIDADES PARA PDF ====
+const addFittedImage = (doc, dataUrl, x, y, boxW, boxH) => {
+  if (!dataUrl) return;
+  const props = doc.getImageProperties(dataUrl);
+  const ratio = Math.min(boxW / props.width, boxH / props.height);
+  const w = props.width * ratio;
+  const h = props.height * ratio;
+  const offsetX = x + (boxW - w) / 2;
+  const offsetY = y + (boxH - h) / 2;
+  doc.addImage(dataUrl, "PNG", offsetX, offsetY, w, h);
+};
+
+const drawSectionHeader = (doc, text, y, pageWidth, margin) => {
+  const blue = { r: 0, g: 51, b: 102 };
+  doc.setFillColor(blue.r, blue.g, blue.b);
+  doc.rect(margin, y, pageWidth - margin * 2, 7, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(text, margin + 2, y + 4.8);
+  doc.setTextColor(0, 0, 0);
+};
+
+const drawTopHeader = (
+  doc,
+  pageWidth,
+  margin,
+  subtitle = "HOJA DE REGISTRO DE HORAS Y KILOMETRAJES EQUIPOS HIDROSUCCIONADORES"
+) => {
+  const blue = { r: 0, g: 51, b: 102 };
+  doc.setFillColor(blue.r, blue.g, blue.b);
+  doc.rect(0, 0, pageWidth, 18, "F");
+
+  if (ASTAP_LOGO_BASE64) {
+    addFittedImage(doc, ASTAP_LOGO_BASE64, margin, 3, 20, 12);
+  } else {
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("ASTAP", margin, 12);
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(255, 255, 255);
+  doc.text(subtitle, pageWidth / 2, 11, { align: "center" });
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+};
+
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
@@ -25,7 +77,7 @@ const HojaRegistroHoras = () => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // ====== FIRMA: COORDENADAS CORREGIDAS PARA EL CANVAS ======
+  // ====== FIRMA: DIBUJO ======
   const getCoords = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
 
@@ -134,31 +186,7 @@ const HojaRegistroHoras = () => {
   const dataTextAreaClass =
     "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
-  // ====== UTILIDAD PARA IMÁGENES EN EL PDF ======
-  const addFittedImage = (doc, dataUrl, x, y, boxW, boxH) => {
-    if (!dataUrl) return;
-    const props = doc.getImageProperties(dataUrl);
-    const ratio = Math.min(boxW / props.width, boxH / props.height);
-    const w = props.width * ratio;
-    const h = props.height * ratio;
-    const offsetX = x + (boxW - w) / 2;
-    const offsetY = y + (boxH - h) / 2;
-    doc.addImage(dataUrl, "PNG", offsetX, offsetY, w, h);
-  };
-
-  // ====== UTILIDAD PARA BARRAS DE SECCIÓN ======
-  const drawSectionHeader = (doc, text, y, pageWidth, margin) => {
-    const blue = { r: 0, g: 51, b: 102 };
-    doc.setFillColor(blue.r, blue.g, blue.b);
-    doc.rect(margin, y, pageWidth - margin * 2, 7, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(text, margin + 2, y + 4.8);
-    doc.setTextColor(0, 0, 0);
-  };
-
-  // ====== GENERAR PDF PROFESIONAL ======
+  // ====== GENERAR PDF SIN LÍMITE DE PÁGINAS ======
   const handleGeneratePdf = async (e) => {
     e.preventDefault();
 
@@ -181,43 +209,13 @@ const HojaRegistroHoras = () => {
       firmaDataUrl = canvasRef.current.toDataURL("image/png");
     }
 
-    // Crear PDF en horizontal
     const doc = new jsPDF("l", "mm", "a4");
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 10;
 
-    // ====== ENCABEZADO CON BARRA AZUL ======
-    const blue = { r: 0, g: 51, b: 102 };
-    doc.setFillColor(blue.r, blue.g, blue.b);
-    doc.rect(0, 0, pageWidth, 18, "F");
-
-    // Logo (si se configuró)
-    if (ASTAP_LOGO_BASE64) {
-      addFittedImage(doc, ASTAP_LOGO_BASE64, margin, 3, 20, 12);
-    } else {
-      // Texto ASTAP si no hay logo
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text("ASTAP", margin, 12);
-    }
-
-    // Título centrado
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(255, 255, 255);
-    doc.text(
-      "HOJA DE REGISTRO DE HORAS Y KILOMETRAJES EQUIPOS HIDROSUCCIONADORES",
-      pageWidth / 2,
-      11,
-      { align: "center" }
-    );
-
-    // Volver a texto negro
-    doc.setTextColor(0, 0, 0);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    // ====== PÁGINA 1: ENCABEZADO ======
+    drawTopHeader(doc, pageWidth, margin);
 
     let y = 22;
 
@@ -227,7 +225,6 @@ const HojaRegistroHoras = () => {
 
     const columnMid = pageWidth / 2;
 
-    // Columna izquierda
     let leftY = y + 3;
     doc.text(`Cliente: ${clienteInspeccion}`, margin + 2, leftY);
     leftY += 5;
@@ -235,7 +232,6 @@ const HojaRegistroHoras = () => {
     leftY += 5;
     doc.text(`N° equipo: ${numeroEquipo}`, margin + 2, leftY);
 
-    // Columna derecha
     let rightY = y + 3;
     doc.text(`Fecha: ${fechaStr}`, columnMid + 2, rightY);
     rightY += 5;
@@ -251,7 +247,6 @@ const HojaRegistroHoras = () => {
     const chasisTextWidth = (pageWidth - margin * 2) * 0.5 - 2;
     const chasisImgWidth = (pageWidth - margin * 2) * 0.5 - 2;
 
-    // Caja kilómetros (izquierda)
     doc.setDrawColor(0);
     doc.rect(margin, y, chasisTextWidth, chasisBoxHeight);
     doc.setFont("helvetica", "bold");
@@ -261,7 +256,6 @@ const HojaRegistroHoras = () => {
       maxWidth: chasisTextWidth - 4,
     });
 
-    // Caja imagen chasis (derecha)
     const imgX = margin + chasisTextWidth + 4;
     doc.setFont("helvetica", "bold");
     doc.text("Imagen chasis:", imgX, y + 5);
@@ -286,7 +280,6 @@ const HojaRegistroHoras = () => {
     const horasBoxHeight = 20;
     const horasBoxWidth = (pageWidth - margin * 2 - 4) / 2;
 
-    // Horas generales
     doc.setDrawColor(0);
     doc.rect(margin, y, horasBoxWidth, horasBoxHeight);
     doc.setFont("helvetica", "bold");
@@ -296,7 +289,6 @@ const HojaRegistroHoras = () => {
       maxWidth: horasBoxWidth - 4,
     });
 
-    // Horas específicas
     const horasEspX = margin + horasBoxWidth + 4;
     doc.setFont("helvetica", "bold");
     doc.rect(horasEspX, y, horasBoxWidth, horasBoxHeight);
@@ -321,41 +313,72 @@ const HojaRegistroHoras = () => {
 
     y += detallesBoxHeight + 10;
 
-    // ====== FOTOS DEL EQUIPO ======
+    // ====== FOTOS DEL EQUIPO (MULTIPÁGINA) ======
     drawSectionHeader(doc, "FOTOS DEL EQUIPO", y, pageWidth, margin);
     y += 9;
 
-    const fotosStartY = y;
     const fotosBoxW = (pageWidth - margin * 2 - 6) / 3; // 3 columnas
     const fotosBoxH = 35;
-
     let fotoX = margin;
-    let fotoY = fotosStartY;
-    let count = 0;
+    let fotoY = y;
+    let lastRowBottom = y;
+    let anyFoto = false;
+    const maxFotosY = pageHeight - margin - 10; // margen inferior usable
 
-    // Usamos solo las imágenes adicionales (no re-usamos la del chasis aquí)
-    imagenesUrls.slice(0, 6).forEach((url) => {
+    imagenesUrls.forEach((url, index) => {
+      // ¿Cabe en esta página?
+      if (fotoY + fotosBoxH > maxFotosY) {
+        // Nueva página para más fotos
+        doc.addPage();
+        drawTopHeader(doc, pageWidth, margin);
+        let y2 = 22;
+        drawSectionHeader(
+          doc,
+          "FOTOS DEL EQUIPO (CONTINUACIÓN)",
+          y2,
+          pageWidth,
+          margin
+        );
+        y2 += 9;
+        fotoX = margin;
+        fotoY = y2;
+      }
+
       doc.rect(fotoX, fotoY, fotosBoxW, fotosBoxH);
       addFittedImage(doc, url, fotoX, fotoY, fotosBoxW, fotosBoxH);
 
-      fotoX += fotosBoxW + 3;
-      count += 1;
+      anyFoto = true;
+      lastRowBottom = fotoY + fotosBoxH;
 
-      if (count % 3 === 0) {
+      // siguiente posición
+      if ((index + 1) % 3 === 0) {
         fotoX = margin;
         fotoY += fotosBoxH + 3;
+      } else {
+        fotoX += fotosBoxW + 3;
       }
     });
 
-    y = Math.max(fotoY + fotosBoxH, fotosStartY) + 10;
+    if (anyFoto) {
+      y = lastRowBottom + 10;
+    } else {
+      y = fotoY + 10;
+    }
 
-    // ====== FIRMAS ======
+    // ====== FIRMAS (SI NO CABE, NUEVA PÁGINA) ======
+    const firmaBoxH = 25;
+    const firmasEstimated = 9 + 7 + firmaBoxH + 15;
+
+    if (y + firmasEstimated > pageHeight - margin) {
+      doc.addPage();
+      drawTopHeader(doc, pageWidth, margin);
+      y = 22;
+    }
+
     drawSectionHeader(doc, "FIRMAS", y, pageWidth, margin);
     y += 9;
 
     const firmaBoxW = 60;
-    const firmaBoxH = 25;
-
     doc.setFont("helvetica", "bold");
     doc.text("Responsable equipo:", margin + 2, y + 5);
     doc.rect(margin, y + 7, firmaBoxW, firmaBoxH);
@@ -378,7 +401,7 @@ const HojaRegistroHoras = () => {
         onSubmit={handleGeneratePdf}
         className="w-full max-w-5xl text-[11px] md:text-xs"
       >
-        {/* FORMULARIO VISUAL */}
+        {/* FORMULARIO VISUAL (igual que antes) */}
         <div className="bg-white border-4 border-blue-600 w-full">
           {/* ENCABEZADO */}
           <div className="flex border-b border-black">
