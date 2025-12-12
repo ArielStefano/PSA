@@ -6,7 +6,8 @@ import { jsPDF } from "jspdf";
 // const ASTAP_LOGO_BASE64 = "data:image/png;base64,AAAA....";
 const ASTAP_LOGO_BASE64 = null;
 
-// ==== UTILIDADES PARA PDF ====
+/* ====================== UTILIDADES PDF ====================== */
+
 const addFittedImage = (doc, dataUrl, x, y, boxW, boxH) => {
   if (!dataUrl) return;
   const props = doc.getImageProperties(dataUrl);
@@ -58,6 +59,8 @@ const drawTopHeader = (
   doc.setFontSize(9);
 };
 
+/* ====================== COMPONENTE ====================== */
+
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
@@ -70,14 +73,13 @@ const HojaRegistroHoras = () => {
   const [mes, setMes] = useState(() =>
     String(new Date().getMonth() + 1).padStart(2, "0")
   );
-  const [anio, setAnio] = useState(() =>
-    String(new Date().getFullYear())
-  );
+  const [anio, setAnio] = useState(() => String(new Date().getFullYear()));
 
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // ====== FIRMA: DIBUJO ======
+  /* ====== FIRMA: DIBUJO ====== */
+
   const getCoords = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
 
@@ -133,7 +135,8 @@ const HojaRegistroHoras = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  // ====== IMAGEN CHASIS (DATA URL) ======
+  /* ====== MANEJO DE IMÁGENES EN FORMULARIO ====== */
+
   const handleImagenChasisChange = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) {
@@ -148,7 +151,6 @@ const HojaRegistroHoras = () => {
     reader.readAsDataURL(file);
   };
 
-  // ====== IMÁGENES GENERALES (MÚLTIPLES DATA URL) ======
   const handleImagenesChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) {
@@ -181,12 +183,13 @@ const HojaRegistroHoras = () => {
     backgroundColor: "#fff",
   };
 
-  // Clases para datos en azul
+  // Clases para inputs/textarea en azul
   const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
   const dataTextAreaClass =
     "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
-  // ====== GENERAR PDF SIN LÍMITE DE PÁGINAS ======
+  /* ====== GENERAR PDF SIN LÍMITE DE PÁGINAS ====== */
+
   const handleGeneratePdf = async (e) => {
     e.preventDefault();
 
@@ -209,17 +212,23 @@ const HojaRegistroHoras = () => {
       firmaDataUrl = canvasRef.current.toDataURL("image/png");
     }
 
+    // --- Repartimos las imágenes: 1ª a DETALLES, resto a FOTOS DEL EQUIPO ---
+    const imagenPrincipalDetalles =
+      imagenesUrls.length > 0 ? imagenesUrls[0] : null;
+    const imagenesRestantes =
+      imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
+
     const doc = new jsPDF("l", "mm", "a4");
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 10;
 
-    // ====== PÁGINA 1: ENCABEZADO ======
+    /* ====== PÁGINA 1: ENCABEZADO ====== */
     drawTopHeader(doc, pageWidth, margin);
 
     let y = 22;
 
-    // ====== DATOS GENERALES ======
+    /* ====== DATOS GENERALES ====== */
     drawSectionHeader(doc, "DATOS GENERALES", y, pageWidth, margin);
     y += 9;
 
@@ -239,7 +248,7 @@ const HojaRegistroHoras = () => {
 
     y = Math.max(leftY, rightY) + 8;
 
-    // ====== CHASIS ======
+    /* ====== CHASIS ====== */
     drawSectionHeader(doc, "CHASIS", y, pageWidth, margin);
     y += 9;
 
@@ -273,7 +282,7 @@ const HojaRegistroHoras = () => {
 
     y += chasisBoxHeight + 10;
 
-    // ====== HORAS ======
+    /* ====== HORAS ====== */
     drawSectionHeader(doc, "HORAS", y, pageWidth, margin);
     y += 9;
 
@@ -300,72 +309,85 @@ const HojaRegistroHoras = () => {
 
     y += horasBoxHeight + 10;
 
-    // ====== DETALLES ======
+    /* ====== DETALLES (TEXTO + 1 FOTO A LA DERECHA) ====== */
     drawSectionHeader(doc, "DETALLES", y, pageWidth, margin);
     y += 9;
 
     const detallesBoxHeight = 30;
-    doc.rect(margin, y, pageWidth - margin * 2, detallesBoxHeight);
+    const totalDetallesWidth = pageWidth - margin * 2;
+    const detallesTextWidth = totalDetallesWidth * 0.6;
+    const detallesImgWidth = totalDetallesWidth - detallesTextWidth - 4;
+
+    // caja de texto (izquierda)
+    doc.rect(margin, y, detallesTextWidth, detallesBoxHeight);
     doc.setFont("helvetica", "normal");
     doc.text(detalles.toString(), margin + 2, y + 5, {
-      maxWidth: pageWidth - margin * 2 - 4,
+      maxWidth: detallesTextWidth - 4,
     });
+
+    // caja de imagen (derecha)
+    const detallesImgX = margin + detallesTextWidth + 4;
+    doc.rect(detallesImgX, y, detallesImgWidth, detallesBoxHeight);
+    if (imagenPrincipalDetalles) {
+      addFittedImage(
+        doc,
+        imagenPrincipalDetalles,
+        detallesImgX,
+        y,
+        detallesImgWidth,
+        detallesBoxHeight
+      );
+    }
 
     y += detallesBoxHeight + 10;
 
-    // ====== FOTOS DEL EQUIPO (MULTIPÁGINA) ======
-    drawSectionHeader(doc, "FOTOS DEL EQUIPO", y, pageWidth, margin);
-    y += 9;
+    /* ====== FOTOS DEL EQUIPO (RESTO DE IMÁGENES, MULTIPÁGINA) ====== */
+    if (imagenesRestantes.length > 0) {
+      drawSectionHeader(doc, "FOTOS DEL EQUIPO", y, pageWidth, margin);
+      y += 9;
 
-    const fotosBoxW = (pageWidth - margin * 2 - 6) / 3; // 3 columnas
-    const fotosBoxH = 35;
-    let fotoX = margin;
-    let fotoY = y;
-    let lastRowBottom = y;
-    let anyFoto = false;
-    const maxFotosY = pageHeight - margin - 10; // margen inferior usable
+      const fotosBoxW = (pageWidth - margin * 2 - 6) / 3; // 3 columnas
+      const fotosBoxH = 35;
+      let fotoX = margin;
+      let fotoY = y;
+      let lastRowBottom = y;
+      const maxFotosY = pageHeight - margin - 10; // margen inferior usable
 
-    imagenesUrls.forEach((url, index) => {
-      // ¿Cabe en esta página?
-      if (fotoY + fotosBoxH > maxFotosY) {
-        // Nueva página para más fotos
-        doc.addPage();
-        drawTopHeader(doc, pageWidth, margin);
-        let y2 = 22;
-        drawSectionHeader(
-          doc,
-          "FOTOS DEL EQUIPO (CONTINUACIÓN)",
-          y2,
-          pageWidth,
-          margin
-        );
-        y2 += 9;
-        fotoX = margin;
-        fotoY = y2;
-      }
+      imagenesRestantes.forEach((url, index) => {
+        if (fotoY + fotosBoxH > maxFotosY) {
+          // Nueva página para más fotos
+          doc.addPage();
+          drawTopHeader(doc, pageWidth, margin);
+          let y2 = 22;
+          drawSectionHeader(
+            doc,
+            "FOTOS DEL EQUIPO (CONTINUACIÓN)",
+            y2,
+            pageWidth,
+            margin
+          );
+          y2 += 9;
+          fotoX = margin;
+          fotoY = y2;
+        }
 
-      doc.rect(fotoX, fotoY, fotosBoxW, fotosBoxH);
-      addFittedImage(doc, url, fotoX, fotoY, fotosBoxW, fotosBoxH);
+        doc.rect(fotoX, fotoY, fotosBoxW, fotosBoxH);
+        addFittedImage(doc, url, fotoX, fotoY, fotosBoxW, fotosBoxH);
 
-      anyFoto = true;
-      lastRowBottom = fotoY + fotosBoxH;
+        lastRowBottom = fotoY + fotosBoxH;
 
-      // siguiente posición
-      if ((index + 1) % 3 === 0) {
-        fotoX = margin;
-        fotoY += fotosBoxH + 3;
-      } else {
-        fotoX += fotosBoxW + 3;
-      }
-    });
+        if ((index + 1) % 3 === 0) {
+          fotoX = margin;
+          fotoY += fotosBoxH + 3;
+        } else {
+          fotoX += fotosBoxW + 3;
+        }
+      });
 
-    if (anyFoto) {
       y = lastRowBottom + 10;
-    } else {
-      y = fotoY + 10;
     }
 
-    // ====== FIRMAS (SI NO CABE, NUEVA PÁGINA) ======
+    /* ====== FIRMAS (SI NO CABE, NUEVA PÁGINA) ====== */
     const firmaBoxH = 25;
     const firmasEstimated = 9 + 7 + firmaBoxH + 15;
 
@@ -395,18 +417,19 @@ const HojaRegistroHoras = () => {
     doc.save("hoja-registro.pdf");
   };
 
+  /* ====================== JSX DEL FORMULARIO ====================== */
+
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <form
         onSubmit={handleGeneratePdf}
         className="w-full max-w-5xl text-[11px] md:text-xs"
       >
-        {/* FORMULARIO VISUAL (igual que antes) */}
         <div className="bg-white border-4 border-blue-600 w-full">
           {/* ENCABEZADO */}
           <div className="flex border-b border-black">
             <div className="w-28 md:w-32 border-r border-black flex items-center justify-center p-2">
-              {/* Aquí puedes poner el logo real */}
+              {/* Aquí puedes reemplazar por <img src="/logo-astap.png" ... /> */}
               <span className="font-bold text-lg uppercase">ASTAP</span>
             </div>
             <div className="flex-1 flex items-center justify-center px-2">
@@ -665,3 +688,4 @@ const HojaRegistroHoras = () => {
 };
 
 export default HojaRegistroHoras;
+
