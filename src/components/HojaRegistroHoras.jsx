@@ -294,12 +294,23 @@ const HojaRegistroHoras = () => {
   // Registros guardados en este navegador
   const [registros, setRegistros] = useState([]);
 
+  // PDF seleccionado para ver en el visor
+  const [pdfSeleccionado, setPdfSeleccionado] = useState(null);
+
   // Al cargar, leer de localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem("registrosHrsKm");
       if (stored) {
-        setRegistros(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setRegistros(parsed);
+        if (parsed.length > 0) {
+          // Mostrar el último generado por defecto
+          const ultimo = parsed[parsed.length - 1];
+          if (ultimo.pdfDataUrl) {
+            setPdfSeleccionado(ultimo.pdfDataUrl);
+          }
+        }
       }
     } catch (err) {
       console.error("Error leyendo registros de localStorage:", err);
@@ -318,13 +329,26 @@ const HojaRegistroHoras = () => {
     });
   };
 
+  // Descargar usando el link almacenado o, si no existe, regenerar
   const descargarPdfDesdeRegistro = (registro) => {
-    const doc = new jsPDF("l", "mm", "a4");
-    buildPdf(doc, registro);
     const nombreArchivo =
       registro.numeroEquipo && registro.numeroEquipo.trim() !== ""
         ? `hoja-registro-${registro.numeroEquipo}.pdf`
         : "hoja-registro.pdf";
+
+    if (registro.pdfDataUrl) {
+      const a = document.createElement("a");
+      a.href = registro.pdfDataUrl;
+      a.download = nombreArchivo;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+
+    // Fallback (por si hay registros antiguos sin pdfDataUrl)
+    const doc = new jsPDF("l", "mm", "a4");
+    buildPdf(doc, registro);
     doc.save(nombreArchivo);
   };
 
@@ -416,7 +440,7 @@ const HojaRegistroHoras = () => {
   const handleImagenesChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) {
-      setImagenesUrls([]);
+      setImágenesUrls([]);
       return;
     }
 
@@ -493,21 +517,28 @@ const HojaRegistroHoras = () => {
     const doc = new jsPDF("l", "mm", "a4");
     buildPdf(doc, data);
 
-    // Guardar en localStorage como un registro nuevo
+    // 1) Generar el PDF como data URL para guardarlo en localStorage
+    const pdfDataUrl = doc.output("datauristring"); // "data:application/pdf;base64,..."
+
+    // 2) Guardar en localStorage como un registro nuevo
     const registro = {
       id: Date.now(),
       ...data,
+      pdfDataUrl,
     };
     guardarRegistroLocal(registro);
 
-    // Descargar PDF
+    // 3) Seleccionar este PDF en el visor
+    setPdfSeleccionado(pdfDataUrl);
+
+    // 4) Descargar PDF
     const nombreArchivo =
       numeroEquipo && numeroEquipo.trim() !== ""
         ? `hoja-registro-${numeroEquipo}.pdf`
         : "hoja-registro.pdf";
     doc.save(nombreArchivo);
 
-    // Volver a la pantalla principal (listado)
+    // 5) Volver a la pantalla principal (listado)
     setVista("list");
   };
 
@@ -517,76 +548,106 @@ const HojaRegistroHoras = () => {
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-start p-4 gap-6">
       {/* ====== VISTA PRINCIPAL: LISTADO DE REPORTES ====== */}
       {vista === "list" && (
-        <div className="w-full max-w-5xl bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
-          <div className="flex justify-between items-center mb-3">
-            <h1 className="font-bold text-sm md:text-base">
-              Registros de horas y kilometrajes
-            </h1>
-            <button
-              type="button"
-              onClick={() => setVista("form")}
-              className="px-3 py-1 text-xs md:text-sm border border-blue-600 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
-            >
-              Nuevo reporte
-            </button>
+        <div className="w-full max-w-6xl flex flex-col gap-4">
+          <div className="bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
+            <div className="flex justify-between items-center mb-3">
+              <h1 className="font-bold text-sm md:text-base">
+                Registros de horas y kilometrajes
+              </h1>
+              <button
+                type="button"
+                onClick={() => setVista("form")}
+                className="px-3 py-1 text-xs md:text-sm border border-blue-600 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
+              >
+                Nuevo reporte
+              </button>
+            </div>
+
+            {registros.length === 0 ? (
+              <p className="text-[11px] text-slate-500">
+                No hay registros guardados en este navegador. Haz clic en{" "}
+                <span className="font-semibold">"Nuevo reporte"</span> para crear
+                el primero.
+              </p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full border text-[11px]">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="border px-2 py-1">#</th>
+                        <th className="border px-2 py-1">Fecha</th>
+                        <th className="border px-2 py-1">Cliente</th>
+                        <th className="border px-2 py-1">Equipo</th>
+                        <th className="border px-2 py-1">Ubicación</th>
+                        <th className="border px-2 py-1">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {registros.map((r, idx) => (
+                        <tr key={r.id || idx}>
+                          <td className="border px-2 py-1 text-center">
+                            {idx + 1}
+                          </td>
+                          <td className="border px-2 py-1 text-center">
+                            {r.fechaStr}
+                          </td>
+                          <td className="border px-2 py-1">
+                            {r.clienteInspeccion}
+                          </td>
+                          <td className="border px-2 py-1 text-center">
+                            {r.numeroEquipo}
+                          </td>
+                          <td className="border px-2 py-1">{r.ubicacion}</td>
+                          <td className="border px-2 py-1 text-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => r.pdfDataUrl && setPdfSeleccionado(r.pdfDataUrl)}
+                              className="px-2 py-1 border border-slate-400 rounded text-[10px] text-slate-700 hover:bg-slate-100"
+                            >
+                              Ver PDF
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => descargarPdfDesdeRegistro(r)}
+                              className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50"
+                            >
+                              Descargar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">
+                  * Estos registros se guardan solo en este navegador
+                  (localStorage). Si borras los datos del navegador o usas otro
+                  dispositivo, no estarán disponibles.
+                </p>
+              </>
+            )}
           </div>
 
-          {registros.length === 0 ? (
-            <p className="text-[11px] text-slate-500">
-              No hay registros guardados en este navegador. Haz clic en{" "}
-              <span className="font-semibold">"Nuevo reporte"</span> para crear
-              el primero.
-            </p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full border text-[11px]">
-                  <thead>
-                    <tr className="bg-slate-100">
-                      <th className="border px-2 py-1">#</th>
-                      <th className="border px-2 py-1">Fecha</th>
-                      <th className="border px-2 py-1">Cliente</th>
-                      <th className="border px-2 py-1">Equipo</th>
-                      <th className="border px-2 py-1">Ubicación</th>
-                      <th className="border px-2 py-1">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {registros.map((r, idx) => (
-                      <tr key={r.id || idx}>
-                        <td className="border px-2 py-1 text-center">
-                          {idx + 1}
-                        </td>
-                        <td className="border px-2 py-1 text-center">
-                          {r.fechaStr}
-                        </td>
-                        <td className="border px-2 py-1">
-                          {r.clienteInspeccion}
-                        </td>
-                        <td className="border px-2 py-1 text-center">
-                          {r.numeroEquipo}
-                        </td>
-                        <td className="border px-2 py-1">{r.ubicacion}</td>
-                        <td className="border px-2 py-1 text-center">
-                          <button
-                            type="button"
-                            onClick={() => descargarPdfDesdeRegistro(r)}
-                            className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50"
-                          >
-                            Descargar PDF
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* VISOR DE PDF DENTRO DE LA PÁGINA */}
+          {pdfSeleccionado && (
+            <div className="w-full bg-white border border-slate-300 rounded p-2">
+              <div className="flex justify-between items-center mb-2 text-[11px] md:text-xs">
+                <span className="font-semibold">
+                  Vista previa del PDF seleccionado
+                </span>
+                <span className="text-slate-500">
+                  (usa el scroll dentro del visor)
+                </span>
               </div>
-              <p className="mt-2 text-[10px] text-slate-500">
-                * Estos registros se guardan solo en este navegador
-                (localStorage). Si borras los datos del navegador o usas otro
-                dispositivo, no estarán disponibles.
-              </p>
-            </>
+              <div className="w-full h-[480px] border border-slate-300">
+                <iframe
+                  title="Visor PDF"
+                  src={pdfSeleccionado}
+                  className="w-full h-full"
+                />
+              </div>
+            </div>
           )}
         </div>
       )}
