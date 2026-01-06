@@ -278,10 +278,7 @@ const HojaRegistroHoras = () => {
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
   const [imagenesUrls, setImagenesUrls] = useState([]);
 
-  // vista: listado o formulario
   const [vista, setVista] = useState("list");
-
-  // registros en este navegador
   const [registros, setRegistros] = useState([]);
 
   // cargar registros guardados
@@ -308,11 +305,9 @@ const HojaRegistroHoras = () => {
     });
   };
 
-  // descargar pdf de un registro viejo (se regenera con jsPDF)
   const descargarPdfDesdeRegistro = (registro) => {
     const doc = new jsPDF("l", "mm", "a4");
     buildPdf(doc, registro);
-
     const nombreArchivo =
       registro.numeroEquipo && registro.numeroEquipo.trim() !== ""
         ? `hoja-registro-${registro.numeroEquipo}.pdf`
@@ -396,27 +391,29 @@ const HojaRegistroHoras = () => {
       setImagenChasisUrl(reader.result);
     };
     reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
+  // Usado tanto por "Tomar foto" como por "Cargar desde galería"
   const handleImagenesChange = (e) => {
     const files = Array.from(e.target.files || []);
-    if (!files.length) {
-      setImagenesUrls([]);
-      return;
-    }
-    const urls = [];
-    let loaded = 0;
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        urls.push(reader.result);
-        loaded += 1;
-        if (loaded === files.length) {
-          setImagenesUrls(urls);
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!files.length) return;
+
+    const readers = files.map(
+      (file) =>
+        new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(file);
+        })
+    );
+
+    Promise.all(readers).then((nuevasUrls) => {
+      setImagenesUrls((prev) => [...prev, ...nuevasUrls]);
     });
+
+    // para poder volver a seleccionar el mismo archivo si hace falta
+    e.target.value = "";
   };
 
   const imageBoxStyle = {
@@ -469,23 +466,21 @@ const HojaRegistroHoras = () => {
       firmaDataUrl,
     };
 
-    // generar pdf
     const doc = new jsPDF("l", "mm", "a4");
     buildPdf(doc, data);
+
     const nombreArchivo =
       numeroEquipo && numeroEquipo.trim() !== ""
         ? `hoja-registro-${numeroEquipo}.pdf`
         : "hoja-registro.pdf";
     doc.save(nombreArchivo);
 
-    // guardar registro sin pdf en localStorage
     const registro = {
       id: Date.now(),
       ...data,
     };
     guardarRegistroLocal(registro);
 
-    // volver al listado
     setVista("list");
   };
 
@@ -718,6 +713,7 @@ const HojaRegistroHoras = () => {
                       type="file"
                       name="imagenChasis"
                       accept="image/*"
+                      capture="environment"   // cámara trasera en móviles
                       className="text-[10px]"
                       onChange={handleImagenChasisChange}
                     />
@@ -782,16 +778,32 @@ const HojaRegistroHoras = () => {
                   Imágenes:
                 </label>
                 <div className="flex-1 flex flex-col px-2 py-1 gap-2">
-                  <input
-                    type="file"
-                    multiple
-                    className="text-[10px]"
-                    name="imagenes"
-                    onChange={handleImagenesChange}
-                    accept="image/*"
-                  />
+                  {/* Inputs ocultos */}
+                  <div className="flex flex-wrap gap-2">
+                    <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
+                      Tomar foto
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleImagenesChange}
+                      />
+                    </label>
+                    <label className="px-2 py-1 border border-slate-500 rounded text-[10px] text-slate-700 hover:bg-slate-100 cursor-pointer">
+                      Cargar desde galería
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImagenesChange}
+                      />
+                    </label>
+                  </div>
+
                   {imagenesUrls.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mt-2">
                       {imagenesUrls.map((url, idx) => (
                         <img
                           key={idx}
