@@ -188,7 +188,7 @@ const HojaRegistroHoras = () => {
   const dataTextAreaClass =
     "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
-  /* ====== GENERAR PDF SIN LÍMITE DE PÁGINAS ====== */
+  /* ====== GENERAR PDF SIN LÍMITE DE PÁGINAS + ENVIAR A BACKEND ====== */
 
   const handleGeneratePdf = async (e) => {
     e.preventDefault();
@@ -414,6 +414,32 @@ const HojaRegistroHoras = () => {
       y + 7 + firmaBoxH + 5
     );
 
+    /* ====== ENVIAR AL BACKEND COMO BASE64 ====== */
+
+    try {
+      const pdfBase64 = doc.output("datauristring").split(",")[1];
+
+      await fetch("/.netlify/functions/guardarRegistro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: "hoja-registro.pdf",
+          pdfBase64,
+          cliente: clienteInspeccion,
+          numeroEquipo,
+          fecha: fechaStr,
+          ubicacion,
+          km,
+          horasGenerales,
+          horasEspecificas,
+          detalles,
+        }),
+      });
+    } catch (err) {
+      console.error("Error enviando registro al backend:", err);
+    }
+
+    // Descargar también en el navegador
     doc.save("hoja-registro.pdf");
   };
 
@@ -688,4 +714,3 @@ const HojaRegistroHoras = () => {
 };
 
 export default HojaRegistroHoras;
-
