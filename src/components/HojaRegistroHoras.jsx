@@ -342,34 +342,47 @@ const HojaRegistroHoras = () => {
   };
 
   const startDrawing = (e) => {
+  // Solo prevenimos el comportamiento por defecto en eventos táctiles
+  if (e.type.startsWith("touch")) {
     e.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const { x, y } = getCoords(e, canvas);
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "#000000";
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    setIsDrawing(true);
-  };
+  }
 
-  const draw = (e) => {
-    if (!isDrawing) return;
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const { x, y } = getCoords(e, canvas);
+
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#000000";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+
+  setIsDrawing(true);
+};
+
+const draw = (e) => {
+  if (!isDrawing) return;
+
+  if (e.type.startsWith("touch")) {
     e.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const { x, y } = getCoords(e, canvas);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
+  }
 
-  const stopDrawing = (e) => {
-    if (e) e.preventDefault();
-    setIsDrawing(false);
-  };
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const { x, y } = getCoords(e, canvas);
+
+  ctx.lineTo(x, y);
+  ctx.stroke();
+};
+
+const stopDrawing = (e) => {
+  if (e && e.type && e.type.startsWith("touch")) {
+    e.preventDefault();
+  }
+  setIsDrawing(false);
+};
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
