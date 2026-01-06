@@ -342,47 +342,40 @@ const HojaRegistroHoras = () => {
   };
 
   const startDrawing = (e) => {
-  // Solo prevenimos el comportamiento por defecto en eventos táctiles
-  if (e.type.startsWith("touch")) {
-    e.preventDefault();
-  }
+    if (e.type.startsWith("touch")) {
+      e.preventDefault();
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const { x, y } = getCoords(e, canvas);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#000000";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
 
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const { x, y } = getCoords(e, canvas);
+  const draw = (e) => {
+    if (!isDrawing) return;
+    if (e.type.startsWith("touch")) {
+      e.preventDefault();
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const { x, y } = getCoords(e, canvas);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
 
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  ctx.strokeStyle = "#000000";
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-
-  setIsDrawing(true);
-};
-
-const draw = (e) => {
-  if (!isDrawing) return;
-
-  if (e.type.startsWith("touch")) {
-    e.preventDefault();
-  }
-
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const { x, y } = getCoords(e, canvas);
-
-  ctx.lineTo(x, y);
-  ctx.stroke();
-};
-
-const stopDrawing = (e) => {
-  if (e && e.type && e.type.startsWith("touch")) {
-    e.preventDefault();
-  }
-  setIsDrawing(false);
-};
+  const stopDrawing = (e) => {
+    if (e && e.type && e.type.startsWith("touch")) {
+      e.preventDefault();
+    }
+    setIsDrawing(false);
+  };
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
@@ -630,9 +623,7 @@ const stopDrawing = (e) => {
                 </div>
               </div>
 
-              {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE
-                  - En móvil: dos filas (arriba Fecha+Ubicación, abajo Cliente+Responsable)
-                  - En md+: dos columnas lado a lado */}
+              {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE */}
               <div className="border-b border-black grid grid-cols-1 md:grid-cols-2">
                 {/* Columna izquierda: FECHA + UBICACIÓN */}
                 <div className="border-b md:border-b-0 md:border-r border-black">
@@ -677,7 +668,7 @@ const stopDrawing = (e) => {
                 </div>
 
                 {/* Columna derecha: CLIENTE + RESPONSABLE */}
-                <div className="">
+                <div>
                   {/* CLIENTE */}
                   <div className="border-b border-black flex">
                     <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
@@ -864,6 +855,7 @@ const stopDrawing = (e) => {
                     width={600}
                     height={90}
                     className="w-full h-full"
+                    style={{ touchAction: "none" }}   // 👈 clave para que no haga scroll/zoom
                     onMouseDown={startDrawing}
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
