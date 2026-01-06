@@ -602,9 +602,9 @@ const HojaRegistroHoras = () => {
               <div className="flex border-b border-black">
                 <div className="flex-1 border-r border-black">
                   <div className="flex">
-                    <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase leading-tight">
+                    <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase leading-tight text-[10px] md:text-[11px]">
                       Número de equipo
-                      <span className="block normal-case text-[10px]">
+                      <span className="block normal-case text-[9px]">
                         (en caso de aplicar):
                       </span>
                     </label>
@@ -617,36 +617,42 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
-              {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE */}
-              <div className="grid grid-cols-12 border-b border-black">
-                <div className="col-span-6 border-r border-black">
+              {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE
+                  - En móvil: dos filas (arriba Fecha+Ubicación, abajo Cliente+Responsable)
+                  - En md+: dos columnas lado a lado */}
+              <div className="border-b border-black grid grid-cols-1 md:grid-cols-2">
+                {/* Columna izquierda: FECHA + UBICACIÓN */}
+                <div className="border-b md:border-b-0 md:border-r border-black">
+                  {/* FECHA */}
                   <div className="flex">
-                    <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                    <label className="w-32 md:w-40 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Fecha:
                     </label>
                     <div className="flex-1 grid grid-cols-3">
                       <input
-                        className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
+                        className="border-r border-black px-1 py-1 text-[10px] md:text-[11px] outline-none text-center text-blue-600"
                         name="dia"
                         value={dia}
                         onChange={(e) => setDia(e.target.value)}
                       />
                       <input
-                        className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
+                        className="border-r border-black px-1 py-1 text-[10px] md:text-[11px] outline-none text-center text-blue-600"
                         name="mes"
                         value={mes}
                         onChange={(e) => setMes(e.target.value)}
                       />
                       <input
-                        className="px-2 py-1 outline-none text-center text-blue-600"
+                        className="px-1 py-1 text-[10px] md:text-[11px] outline-none text-center text-blue-600"
                         name="anio"
                         value={anio}
                         onChange={(e) => setAnio(e.target.value)}
                       />
                     </div>
                   </div>
+
+                  {/* UBICACIÓN */}
                   <div className="flex border-t border-black">
-                    <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                    <label className="w-32 md:w-40 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Ubicación:
                     </label>
                     <input
@@ -657,9 +663,11 @@ const HojaRegistroHoras = () => {
                   </div>
                 </div>
 
-                <div className="col-span-6">
+                {/* Columna derecha: CLIENTE + RESPONSABLE */}
+                <div className="">
+                  {/* CLIENTE */}
                   <div className="border-b border-black flex">
-                    <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase">
+                    <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Cliente:
                     </label>
                     <input
@@ -668,8 +676,10 @@ const HojaRegistroHoras = () => {
                       type="text"
                     />
                   </div>
+
+                  {/* RESPONSABLE EQUIPO */}
                   <div className="flex">
-                    <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase leading-tight">
+                    <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase leading-tight text-[10px] md:text-[11px]">
                       Responsable
                       <span className="block">equipo:</span>
                     </label>
