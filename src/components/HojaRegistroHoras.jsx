@@ -288,6 +288,9 @@ const HojaRegistroHoras = () => {
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
   const [imagenesUrls, setImagenesUrls] = useState([]);
 
+  // Vista actual: 'list' (pantalla principal) o 'form' (nuevo reporte)
+  const [vista, setVista] = useState("list");
+
   // Registros guardados en este navegador
   const [registros, setRegistros] = useState([]);
 
@@ -503,326 +506,379 @@ const HojaRegistroHoras = () => {
         ? `hoja-registro-${numeroEquipo}.pdf`
         : "hoja-registro.pdf";
     doc.save(nombreArchivo);
+
+    // Volver a la pantalla principal (listado)
+    setVista("list");
   };
 
-  /* ====================== JSX DEL FORMULARIO ====================== */
+  /* ====================== JSX (VISTAS) ====================== */
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-start p-4 gap-6">
-      <form
-        onSubmit={handleGeneratePdf}
-        className="w-full max-w-5xl text-[11px] md:text-xs"
-      >
-        <div className="bg-white border-4 border-blue-600 w-full">
-          {/* ENCABEZADO */}
-          <div className="flex border-b border-black">
-            <div className="w-28 md:w-32 border-r border-black flex items-center justify-center p-2">
-              {/* Aquí puedes reemplazar por <img src="/logo-astap.png" ... /> */}
-              <span className="font-bold text-lg uppercase">ASTAP</span>
-            </div>
-            <div className="flex-1 flex items-center justify-center px-2">
-              <h1 className="text-center font-bold uppercase leading-tight">
-                Hoja de registro de horas y kilometrajes equipos hidrosuccionadores
-              </h1>
-            </div>
+      {/* ====== VISTA PRINCIPAL: LISTADO DE REPORTES ====== */}
+      {vista === "list" && (
+        <div className="w-full max-w-5xl bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
+          <div className="flex justify-between items-center mb-3">
+            <h1 className="font-bold text-sm md:text-base">
+              Registros de horas y kilometrajes
+            </h1>
+            <button
+              type="button"
+              onClick={() => setVista("form")}
+              className="px-3 py-1 text-xs md:text-sm border border-blue-600 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            >
+              Nuevo reporte
+            </button>
           </div>
 
-          {/* NÚMERO DE EQUIPO */}
-          <div className="flex border-b border-black">
-            <div className="flex-1 border-r border-black">
-              <div className="flex">
-                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase leading-tight">
-                  Número de equipo
-                  <span className="block normal-case text-[10px]">
-                    (en caso de aplicar):
-                  </span>
-                </label>
-                <input
-                  className={dataInputClass}
-                  name="numeroEquipo"
-                  type="text"
-                />
+          {registros.length === 0 ? (
+            <p className="text-[11px] text-slate-500">
+              No hay registros guardados en este navegador. Haz clic en{" "}
+              <span className="font-semibold">"Nuevo reporte"</span> para crear
+              el primero.
+            </p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full border text-[11px]">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="border px-2 py-1">#</th>
+                      <th className="border px-2 py-1">Fecha</th>
+                      <th className="border px-2 py-1">Cliente</th>
+                      <th className="border px-2 py-1">Equipo</th>
+                      <th className="border px-2 py-1">Ubicación</th>
+                      <th className="border px-2 py-1">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registros.map((r, idx) => (
+                      <tr key={r.id || idx}>
+                        <td className="border px-2 py-1 text-center">
+                          {idx + 1}
+                        </td>
+                        <td className="border px-2 py-1 text-center">
+                          {r.fechaStr}
+                        </td>
+                        <td className="border px-2 py-1">
+                          {r.clienteInspeccion}
+                        </td>
+                        <td className="border px-2 py-1 text-center">
+                          {r.numeroEquipo}
+                        </td>
+                        <td className="border px-2 py-1">{r.ubicacion}</td>
+                        <td className="border px-2 py-1 text-center">
+                          <button
+                            type="button"
+                            onClick={() => descargarPdfDesdeRegistro(r)}
+                            className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50"
+                          >
+                            Descargar PDF
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          </div>
-
-          {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE EQUIPO */}
-          <div className="grid grid-cols-12 border-b border-black">
-            <div className="col-span-6 border-r border-black">
-              <div className="flex">
-                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                  Fecha:
-                </label>
-                <div className="flex-1 grid grid-cols-3">
-                  <input
-                    className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
-                    name="dia"
-                    value={dia}
-                    onChange={(e) => setDia(e.target.value)}
-                  />
-                  <input
-                    className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
-                    name="mes"
-                    value={mes}
-                    onChange={(e) => setMes(e.target.value)}
-                  />
-                  <input
-                    className="px-2 py-1 outline-none text-center text-blue-600"
-                    name="anio"
-                    value={anio}
-                    onChange={(e) => setAnio(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="flex border-t border-black">
-                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                  Ubicación:
-                </label>
-                <input
-                  className={dataInputClass}
-                  name="ubicacion"
-                  type="text"
-                />
-              </div>
-            </div>
-
-            <div className="col-span-6">
-              <div className="border-b border-black flex">
-                <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase">
-                  Cliente:
-                </label>
-                <input
-                  className={dataInputClass}
-                  name="clienteInspeccion"
-                  type="text"
-                />
-              </div>
-              <div className="flex">
-                <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase leading-tight">
-                  Responsable
-                  <span className="block">equipo:</span>
-                </label>
-                <input
-                  className={dataInputClass}
-                  name="responsableEquipoInput"
-                  type="text"
-                  value={responsableEquipo}
-                  onChange={(e) => setResponsableEquipo(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* CHASIS */}
-          <div className="border-b border-black text-center py-1 font-semibold uppercase">
-            Chasis
-          </div>
-
-          {/* KILÓMETROS + IMAGEN CHASIS */}
-          <div className="grid grid-cols-3 border-b border-black">
-            <div className="col-span-2 flex">
-              <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                Kilómetros:
-              </label>
-              <textarea
-                className={`${dataTextAreaClass} h-20`}
-                name="kilometros"
-              />
-            </div>
-
-            <div className="border-l border-black flex flex-col">
-              <div className="border-b border-black text-center py-1 font-semibold uppercase">
-                Imagen
-              </div>
-              <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1 py-1">
-                <span className="text-[10px]">
-                  Adjuntar imagen / foto del chasis
-                </span>
-                <input
-                  type="file"
-                  name="imagenChasis"
-                  accept="image/*"
-                  className="text-[10px]"
-                  onChange={handleImagenChasisChange}
-                />
-                {imagenChasisUrl && (
-                  <img
-                    src={imagenChasisUrl}
-                    alt="Chasis"
-                    style={imageBoxStyle}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* MÓDULO */}
-          <div className="border-b border-black text-center py-1 font-semibold uppercase">
-            Módulo
-          </div>
-
-          {/* HORAS GENERALES */}
-          <div className="flex border-b border-black">
-            <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-              Horas:
-              <span className="normal-case"> (generales)</span>
-            </label>
-            <textarea
-              className={`${dataTextAreaClass} h-16`}
-              name="horasGenerales"
-            />
-          </div>
-
-          {/* HORAS ESPECÍFICAS */}
-          <div className="flex border-b border-black">
-            <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-              Horas:
-              <span className="normal-case"> (específicas)</span>
-            </label>
-            <textarea
-              className={`${dataTextAreaClass} h-16`}
-              name="horasEspecificas"
-            />
-          </div>
-
-          {/* DETALLES */}
-          <div className="flex border-b border-black">
-            <div className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-              Detalles:
-              <div className="normal-case text-[9px] mt-1 leading-tight">
-                (Espacio para ingresar novedades referentes al equipo, su operación
-                o funcionamiento)
-              </div>
-            </div>
-            <textarea
-              className={`${dataTextAreaClass} h-20`}
-              name="detalles"
-            />
-          </div>
-
-          {/* IMÁGENES GENERALES CON PREVIEW */}
-          <div className="flex border-b border-black">
-            <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-              Imágenes:
-            </label>
-            <div className="flex-1 flex flex-col px-2 py-1 gap-2">
-              <input
-                type="file"
-                multiple
-                className="text-[10px]"
-                name="imagenes"
-                onChange={handleImagenesChange}
-                accept="image/*"
-              />
-              {imagenesUrls.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {imagenesUrls.map((url, idx) => (
-                    <img
-                      key={idx}
-                      src={url}
-                      alt={`Imagen ${idx + 1}`}
-                      style={imageBoxStyle}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* FIRMA DIGITAL */}
-          <div className="border-b border-black px-4 py-3">
-            <div className="border border-black h-24 flex flex-col">
-              <canvas
-                ref={canvasRef}
-                width={600}
-                height={90}
-                className="w-full h-full"
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                onTouchStart={startDrawing}
-                onTouchMove={draw}
-                onTouchEnd={stopDrawing}
-              />
-            </div>
-            <div className="flex justify-between items-center mt-1">
-              <p className="text-xs text-center flex-1 text-blue-600">
-                {responsableEquipo || "Nombre del responsable del equipo"}
+              <p className="mt-2 text-[10px] text-slate-500">
+                * Estos registros se guardan solo en este navegador
+                (localStorage). Si borras los datos del navegador o usas otro
+                dispositivo, no estarán disponibles.
               </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ====== VISTA FORMULARIO: NUEVO REPORTE ====== */}
+      {vista === "form" && (
+        <>
+          <div className="w-full max-w-5xl flex justify-between items-center mb-2">
+            <button
+              type="button"
+              onClick={() => setVista("list")}
+              className="px-3 py-1 text-xs md:text-sm border border-slate-400 rounded bg-white hover:bg-slate-100"
+            >
+              ← Volver al listado
+            </button>
+            <span className="text-[11px] md:text-xs text-slate-600">
+              Llenando nuevo reporte
+            </span>
+          </div>
+
+          <form
+            onSubmit={handleGeneratePdf}
+            className="w-full max-w-5xl text-[11px] md:text-xs"
+          >
+            <div className="bg-white border-4 border-blue-600 w-full">
+              {/* ENCABEZADO */}
+              <div className="flex border-b border-black">
+                <div className="w-28 md:w-32 border-r border-black flex items-center justify-center p-2">
+                  {/* Aquí puedes reemplazar por <img src="/logo-astap.png" ... /> */}
+                  <span className="font-bold text-lg uppercase">ASTAP</span>
+                </div>
+                <div className="flex-1 flex items-center justify-center px-2">
+                  <h1 className="text-center font-bold uppercase leading-tight">
+                    Hoja de registro de horas y kilometrajes equipos
+                    hidrosuccionadores
+                  </h1>
+                </div>
+              </div>
+
+              {/* NÚMERO DE EQUIPO */}
+              <div className="flex border-b border-black">
+                <div className="flex-1 border-r border-black">
+                  <div className="flex">
+                    <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase leading-tight">
+                      Número de equipo
+                      <span className="block normal-case text-[10px]">
+                        (en caso de aplicar):
+                      </span>
+                    </label>
+                    <input
+                      className={dataInputClass}
+                      name="numeroEquipo"
+                      type="text"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE EQUIPO */}
+              <div className="grid grid-cols-12 border-b border-black">
+                <div className="col-span-6 border-r border-black">
+                  <div className="flex">
+                    <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                      Fecha:
+                    </label>
+                    <div className="flex-1 grid grid-cols-3">
+                      <input
+                        className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
+                        name="dia"
+                        value={dia}
+                        onChange={(e) => setDia(e.target.value)}
+                      />
+                      <input
+                        className="border-r border-black px-2 py-1 outline-none text-center text-blue-600"
+                        name="mes"
+                        value={mes}
+                        onChange={(e) => setMes(e.target.value)}
+                      />
+                      <input
+                        className="px-2 py-1 outline-none text-center text-blue-600"
+                        name="anio"
+                        value={anio}
+                        onChange={(e) => setAnio(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex border-t border-black">
+                    <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                      Ubicación:
+                    </label>
+                    <input
+                      className={dataInputClass}
+                      name="ubicacion"
+                      type="text"
+                    />
+                  </div>
+                </div>
+
+                <div className="col-span-6">
+                  <div className="border-b border-black flex">
+                    <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase">
+                      Cliente:
+                    </label>
+                    <input
+                      className={dataInputClass}
+                      name="clienteInspeccion"
+                      type="text"
+                    />
+                  </div>
+                  <div className="flex">
+                    <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase leading-tight">
+                      Responsable
+                      <span className="block">equipo:</span>
+                    </label>
+                    <input
+                      className={dataInputClass}
+                      name="responsableEquipoInput"
+                      type="text"
+                      value={responsableEquipo}
+                      onChange={(e) => setResponsableEquipo(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* CHASIS */}
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">
+                Chasis
+              </div>
+
+              {/* KILÓMETROS + IMAGEN CHASIS */}
+              <div className="grid grid-cols-3 border-b border-black">
+                <div className="col-span-2 flex">
+                  <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                    Kilómetros:
+                  </label>
+                  <textarea
+                    className={`${dataTextAreaClass} h-20`}
+                    name="kilometros"
+                  />
+                </div>
+
+                <div className="border-l border-black flex flex-col">
+                  <div className="border-b border-black text-center py-1 font-semibold uppercase">
+                    Imagen
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1 py-1">
+                    <span className="text-[10px]">
+                      Adjuntar imagen / foto del chasis
+                    </span>
+                    <input
+                      type="file"
+                      name="imagenChasis"
+                      accept="image/*"
+                      className="text-[10px]"
+                      onChange={handleImagenChasisChange}
+                    />
+                    {imagenChasisUrl && (
+                      <img
+                        src={imagenChasisUrl}
+                        alt="Chasis"
+                        style={imageBoxStyle}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* MÓDULO */}
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">
+                Módulo
+              </div>
+
+              {/* HORAS GENERALES */}
+              <div className="flex border-b border-black">
+                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                  Horas:
+                  <span className="normal-case"> (generales)</span>
+                </label>
+                <textarea
+                  className={`${dataTextAreaClass} h-16`}
+                  name="horasGenerales"
+                />
+              </div>
+
+              {/* HORAS ESPECÍFICAS */}
+              <div className="flex border-b border-black">
+                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                  Horas:
+                  <span className="normal-case"> (específicas)</span>
+                </label>
+                <textarea
+                  className={`${dataTextAreaClass} h-16`}
+                  name="horasEspecificas"
+                />
+              </div>
+
+              {/* DETALLES */}
+              <div className="flex border-b border-black">
+                <div className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                  Detalles:
+                  <div className="normal-case text-[9px] mt-1 leading-tight">
+                    (Espacio para ingresar novedades referentes al equipo, su
+                    operación o funcionamiento)
+                  </div>
+                </div>
+                <textarea
+                  className={`${dataTextAreaClass} h-20`}
+                  name="detalles"
+                />
+              </div>
+
+              {/* IMÁGENES GENERALES CON PREVIEW */}
+              <div className="flex border-b border-black">
+                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                  Imágenes:
+                </label>
+                <div className="flex-1 flex flex-col px-2 py-1 gap-2">
+                  <input
+                    type="file"
+                    multiple
+                    className="text-[10px]"
+                    name="imagenes"
+                    onChange={handleImagenesChange}
+                    accept="image/*"
+                  />
+                  {imagenesUrls.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {imagenesUrls.map((url, idx) => (
+                        <img
+                          key={idx}
+                          src={url}
+                          alt={`Imagen ${idx + 1}`}
+                          style={imageBoxStyle}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* FIRMA DIGITAL */}
+              <div className="border-b border-black px-4 py-3">
+                <div className="border border-black h-24 flex flex-col">
+                  <canvas
+                    ref={canvasRef}
+                    width={600}
+                    height={90}
+                    className="w-full h-full"
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                  />
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-xs text-center flex-1 text-blue-600">
+                    {responsableEquipo ||
+                      "Nombre del responsable del equipo"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clearSignature}
+                    className="ml-4 px-2 py-1 text-[10px] border border-slate-400 rounded hover:bg-slate-100"
+                  >
+                    Borrar firma
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* BOTONES FORMULARIO */}
+            <div className="flex justify-between p-3">
               <button
                 type="button"
-                onClick={clearSignature}
-                className="ml-4 px-2 py-1 text-[10px] border border-slate-400 rounded hover:bg-slate-100"
+                onClick={() => setVista("list")}
+                className="px-3 py-2 text-xs md:text-sm border border-slate-400 rounded bg-white text-slate-700 hover:bg-slate-100"
               >
-                Borrar firma
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 text-xs md:text-sm border border-blue-600 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
+              >
+                Generar PDF
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* BOTÓN GENERAR PDF */}
-        <div className="flex justify-end p-3">
-          <button
-            type="submit"
-            className="px-4 py-2 text-xs md:text-sm border border-blue-600 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
-          >
-            Generar PDF
-          </button>
-        </div>
-      </form>
-
-      {/* LISTADO DE REGISTROS GUARDADOS EN ESTE NAVEGADOR */}
-      {registros.length > 0 && (
-        <div className="w-full max-w-5xl bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
-          <h2 className="font-semibold mb-2">
-            Registros guardados en este navegador
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full border text-[11px]">
-              <thead>
-                <tr className="bg-slate-100">
-                  <th className="border px-2 py-1">#</th>
-                  <th className="border px-2 py-1">Fecha</th>
-                  <th className="border px-2 py-1">Cliente</th>
-                  <th className="border px-2 py-1">Equipo</th>
-                  <th className="border px-2 py-1">Ubicación</th>
-                  <th className="border px-2 py-1">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {registros.map((r, idx) => (
-                  <tr key={r.id || idx}>
-                    <td className="border px-2 py-1 text-center">
-                      {idx + 1}
-                    </td>
-                    <td className="border px-2 py-1 text-center">
-                      {r.fechaStr}
-                    </td>
-                    <td className="border px-2 py-1">{r.clienteInspeccion}</td>
-                    <td className="border px-2 py-1 text-center">
-                      {r.numeroEquipo}
-                    </td>
-                    <td className="border px-2 py-1">{r.ubicacion}</td>
-                    <td className="border px-2 py-1 text-center">
-                      <button
-                        type="button"
-                        onClick={() => descargarPdfDesdeRegistro(r)}
-                        className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50"
-                      >
-                        Descargar PDF
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-2 text-[10px] text-slate-500">
-            * Estos registros se guardan solo en este navegador (localStorage). Si borras
-            los datos del navegador o usas otro dispositivo, no estarán disponibles.
-          </p>
-        </div>
+          </form>
+        </>
       )}
     </div>
   );
