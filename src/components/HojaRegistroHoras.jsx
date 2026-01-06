@@ -378,7 +378,7 @@ const HojaRegistroHoras = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  /* ====== IMÁGENES FORMULARIO ====== */
+  /* ====== IMAGEN CHASIS (CÁMARA + GALERÍA) ====== */
 
   const handleImagenChasisChange = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -394,7 +394,8 @@ const HojaRegistroHoras = () => {
     e.target.value = "";
   };
 
-  // Usado tanto por "Tomar foto" como por "Cargar desde galería"
+  /* ====== IMÁGENES GENERALES (CÁMARA + GALERÍA) ====== */
+
   const handleImagenesChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -412,7 +413,6 @@ const HojaRegistroHoras = () => {
       setImagenesUrls((prev) => [...prev, ...nuevasUrls]);
     });
 
-    // para poder volver a seleccionar el mismo archivo si hace falta
     e.target.value = "";
   };
 
@@ -709,14 +709,31 @@ const HojaRegistroHoras = () => {
                     <span className="text-[10px]">
                       Adjuntar imagen / foto del chasis
                     </span>
-                    <input
-                      type="file"
-                      name="imagenChasis"
-                      accept="image/*"
-                      capture="environment"   // cámara trasera en móviles
-                      className="text-[10px]"
-                      onChange={handleImagenChasisChange}
-                    />
+
+                    {/* Botones cámara / galería para chasis */}
+                    <div className="flex flex-wrap gap-2">
+                      <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
+                        Tomar foto
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={handleImagenChasisChange}
+                        />
+                      </label>
+
+                      <label className="px-2 py-1 border border-slate-500 rounded text-[10px] text-slate-700 hover:bg-slate-100 cursor-pointer">
+                        Cargar desde galería
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImagenChasisChange}
+                        />
+                      </label>
+                    </div>
+
                     {imagenChasisUrl && (
                       <img
                         src={imagenChasisUrl}
@@ -778,7 +795,6 @@ const HojaRegistroHoras = () => {
                   Imágenes:
                 </label>
                 <div className="flex-1 flex flex-col px-2 py-1 gap-2">
-                  {/* Inputs ocultos */}
                   <div className="flex flex-wrap gap-2">
                     <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
                       Tomar foto
