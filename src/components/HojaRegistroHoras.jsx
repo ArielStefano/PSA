@@ -59,10 +59,6 @@ const drawTopHeader = (
   doc.setFontSize(9);
 };
 
-/**
- * Genera el PDF a partir de un objeto de datos
- * (lo usamos tanto para el formulario actual como para registros guardados)
- */
 const buildPdf = (doc, data) => {
   const {
     numeroEquipo,
@@ -83,23 +79,20 @@ const buildPdf = (doc, data) => {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
 
-  // Repartimos imágenes: 1ª a DETALLES, resto a FOTOS DEL EQUIPO
   const imagenPrincipalDetalles =
     imagenesUrls.length > 0 ? imagenesUrls[0] : null;
   const imagenesRestantes =
     imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
 
-  /* ====== PÁGINA 1: ENCABEZADO ====== */
+  // CABECERA
   drawTopHeader(doc, pageWidth, margin);
-
   let y = 22;
 
-  /* ====== DATOS GENERALES ====== */
+  // DATOS GENERALES
   drawSectionHeader(doc, "DATOS GENERALES", y, pageWidth, margin);
   y += 9;
 
   const columnMid = pageWidth / 2;
-
   let leftY = y + 3;
   doc.text(`Cliente: ${clienteInspeccion || ""}`, margin + 2, leftY);
   leftY += 5;
@@ -114,7 +107,7 @@ const buildPdf = (doc, data) => {
 
   y = Math.max(leftY, rightY) + 8;
 
-  /* ====== CHASIS ====== */
+  // CHASIS
   drawSectionHeader(doc, "CHASIS", y, pageWidth, margin);
   y += 9;
 
@@ -148,7 +141,7 @@ const buildPdf = (doc, data) => {
 
   y += chasisBoxHeight + 10;
 
-  /* ====== HORAS ====== */
+  // HORAS
   drawSectionHeader(doc, "HORAS", y, pageWidth, margin);
   y += 9;
 
@@ -175,7 +168,7 @@ const buildPdf = (doc, data) => {
 
   y += horasBoxHeight + 10;
 
-  /* ====== DETALLES (TEXTO + 1 FOTO A LA DERECHA) ====== */
+  // DETALLES
   drawSectionHeader(doc, "DETALLES", y, pageWidth, margin);
   y += 9;
 
@@ -184,14 +177,12 @@ const buildPdf = (doc, data) => {
   const detallesTextWidth = totalDetallesWidth * 0.6;
   const detallesImgWidth = totalDetallesWidth - detallesTextWidth - 4;
 
-  // caja de texto (izquierda)
   doc.rect(margin, y, detallesTextWidth, detallesBoxHeight);
   doc.setFont("helvetica", "normal");
   doc.text((detalles || "").toString(), margin + 2, y + 5, {
     maxWidth: detallesTextWidth - 4,
   });
 
-  // caja de imagen (derecha)
   const detallesImgX = margin + detallesTextWidth + 4;
   doc.rect(detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   if (imagenPrincipalDetalles) {
@@ -207,21 +198,20 @@ const buildPdf = (doc, data) => {
 
   y += detallesBoxHeight + 10;
 
-  /* ====== FOTOS DEL EQUIPO (RESTO DE IMÁGENES, MULTIPÁGINA) ====== */
+  // FOTOS DEL EQUIPO
   if (imagenesRestantes.length > 0) {
     drawSectionHeader(doc, "FOTOS DEL EQUIPO", y, pageWidth, margin);
     y += 9;
 
-    const fotosBoxW = (pageWidth - margin * 2 - 6) / 3; // 3 columnas
+    const fotosBoxW = (pageWidth - margin * 2 - 6) / 3;
     const fotosBoxH = 35;
     let fotoX = margin;
     let fotoY = y;
     let lastRowBottom = y;
-    const maxFotosY = pageHeight - margin - 10; // margen inferior usable
+    const maxFotosY = pageHeight - margin - 10;
 
     imagenesRestantes.forEach((url, index) => {
       if (fotoY + fotosBoxH > maxFotosY) {
-        // Nueva página para más fotos
         doc.addPage();
         drawTopHeader(doc, pageWidth, margin);
         let y2 = 22;
@@ -253,7 +243,7 @@ const buildPdf = (doc, data) => {
     y = lastRowBottom + 10;
   }
 
-  /* ====== FIRMAS (SI NO CABE, NUEVA PÁGINA) ====== */
+  // FIRMAS
   const firmaBoxH = 25;
   const firmasEstimated = 9 + 7 + firmaBoxH + 15;
 
@@ -281,36 +271,25 @@ const buildPdf = (doc, data) => {
   );
 };
 
-/* ====================== COMPONENTE ====================== */
+/* ====================== COMPONENTE PRINCIPAL ====================== */
 
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
   const [imagenesUrls, setImagenesUrls] = useState([]);
 
-  // Vista actual: 'list' (pantalla principal) o 'form' (nuevo reporte)
+  // vista: listado o formulario
   const [vista, setVista] = useState("list");
 
-  // Registros guardados en este navegador
+  // registros en este navegador
   const [registros, setRegistros] = useState([]);
 
-  // PDF seleccionado para ver en el visor
-  const [pdfSeleccionado, setPdfSeleccionado] = useState(null);
-
-  // Al cargar, leer de localStorage
+  // cargar registros guardados
   useEffect(() => {
     try {
       const stored = localStorage.getItem("registrosHrsKm");
       if (stored) {
-        const parsed = JSON.parse(stored);
-        setRegistros(parsed);
-        if (parsed.length > 0) {
-          // Mostrar el último generado por defecto
-          const ultimo = parsed[parsed.length - 1];
-          if (ultimo.pdfDataUrl) {
-            setPdfSeleccionado(ultimo.pdfDataUrl);
-          }
-        }
+        setRegistros(JSON.parse(stored));
       }
     } catch (err) {
       console.error("Error leyendo registros de localStorage:", err);
@@ -329,30 +308,19 @@ const HojaRegistroHoras = () => {
     });
   };
 
-  // Descargar usando el link almacenado o, si no existe, regenerar
+  // descargar pdf de un registro viejo (se regenera con jsPDF)
   const descargarPdfDesdeRegistro = (registro) => {
+    const doc = new jsPDF("l", "mm", "a4");
+    buildPdf(doc, registro);
+
     const nombreArchivo =
       registro.numeroEquipo && registro.numeroEquipo.trim() !== ""
         ? `hoja-registro-${registro.numeroEquipo}.pdf`
         : "hoja-registro.pdf";
-
-    if (registro.pdfDataUrl) {
-      const a = document.createElement("a");
-      a.href = registro.pdfDataUrl;
-      a.download = nombreArchivo;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      return;
-    }
-
-    // Fallback (por si hay registros antiguos sin pdfDataUrl)
-    const doc = new jsPDF("l", "mm", "a4");
-    buildPdf(doc, registro);
     doc.save(nombreArchivo);
   };
 
-  // Fecha actual
+  // fecha actual
   const [dia, setDia] = useState(() =>
     String(new Date().getDate()).padStart(2, "0")
   );
@@ -364,17 +332,14 @@ const HojaRegistroHoras = () => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  /* ====== FIRMA: DIBUJO ====== */
+  /* ====== FIRMA ====== */
 
   const getCoords = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
-
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-
     return {
       x: (clientX - rect.left) * scaleX,
       y: (clientY - rect.top) * scaleY,
@@ -387,11 +352,9 @@ const HojaRegistroHoras = () => {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     const { x, y } = getCoords(e, canvas);
-
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.strokeStyle = "#000000";
-
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsDrawing(true);
@@ -404,7 +367,6 @@ const HojaRegistroHoras = () => {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     const { x, y } = getCoords(e, canvas);
-
     ctx.lineTo(x, y);
     ctx.stroke();
   };
@@ -421,7 +383,7 @@ const HojaRegistroHoras = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  /* ====== MANEJO DE IMÁGENES EN FORMULARIO ====== */
+  /* ====== IMÁGENES FORMULARIO ====== */
 
   const handleImagenChasisChange = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -429,10 +391,9 @@ const HojaRegistroHoras = () => {
       setImagenChasisUrl(null);
       return;
     }
-
     const reader = new FileReader();
     reader.onload = () => {
-      setImagenChasisUrl(reader.result); // dataURL
+      setImagenChasisUrl(reader.result);
     };
     reader.readAsDataURL(file);
   };
@@ -440,17 +401,15 @@ const HojaRegistroHoras = () => {
   const handleImagenesChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) {
-      setImágenesUrls([]);
+      setImagenesUrls([]);
       return;
     }
-
     const urls = [];
     let loaded = 0;
-
     files.forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => {
-        urls.push(reader.result); // dataURL
+        urls.push(reader.result);
         loaded += 1;
         if (loaded === files.length) {
           setImagenesUrls(urls);
@@ -460,7 +419,6 @@ const HojaRegistroHoras = () => {
     });
   };
 
-  // ~5x5 cm ≈ 190x190 px para la vista en pantalla
   const imageBoxStyle = {
     width: "190px",
     height: "190px",
@@ -469,12 +427,11 @@ const HojaRegistroHoras = () => {
     backgroundColor: "#fff",
   };
 
-  // Clases para inputs/textarea en azul
   const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
   const dataTextAreaClass =
     "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
-  /* ====== GENERAR PDF + GUARDAR REGISTRO LOCAL ====== */
+  /* ====== GENERAR PDF Y GUARDAR ====== */
 
   const handleGeneratePdf = (e) => {
     e.preventDefault();
@@ -492,13 +449,11 @@ const HojaRegistroHoras = () => {
 
     const fechaStr = `${dia}/${mes}/${anio}`;
 
-    // Firma como imagen (dataURL)
     let firmaDataUrl = null;
     if (canvasRef.current) {
       firmaDataUrl = canvasRef.current.toDataURL("image/png");
     }
 
-    // Objeto de datos completo para PDF y para registro local
     const data = {
       numeroEquipo,
       ubicacion,
@@ -514,145 +469,107 @@ const HojaRegistroHoras = () => {
       firmaDataUrl,
     };
 
+    // generar pdf
     const doc = new jsPDF("l", "mm", "a4");
     buildPdf(doc, data);
-
-    // 1) Generar el PDF como data URL para guardarlo en localStorage
-    const pdfDataUrl = doc.output("datauristring"); // "data:application/pdf;base64,..."
-
-    // 2) Guardar en localStorage como un registro nuevo
-    const registro = {
-      id: Date.now(),
-      ...data,
-      pdfDataUrl,
-    };
-    guardarRegistroLocal(registro);
-
-    // 3) Seleccionar este PDF en el visor
-    setPdfSeleccionado(pdfDataUrl);
-
-    // 4) Descargar PDF
     const nombreArchivo =
       numeroEquipo && numeroEquipo.trim() !== ""
         ? `hoja-registro-${numeroEquipo}.pdf`
         : "hoja-registro.pdf";
     doc.save(nombreArchivo);
 
-    // 5) Volver a la pantalla principal (listado)
+    // guardar registro sin pdf en localStorage
+    const registro = {
+      id: Date.now(),
+      ...data,
+    };
+    guardarRegistroLocal(registro);
+
+    // volver al listado
     setVista("list");
   };
 
-  /* ====================== JSX (VISTAS) ====================== */
+  /* ====================== VISTAS ====================== */
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-start p-4 gap-6">
-      {/* ====== VISTA PRINCIPAL: LISTADO DE REPORTES ====== */}
+      {/* LISTADO */}
       {vista === "list" && (
-        <div className="w-full max-w-6xl flex flex-col gap-4">
-          <div className="bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
-            <div className="flex justify-between items-center mb-3">
-              <h1 className="font-bold text-sm md:text-base">
-                Registros de horas y kilometrajes
-              </h1>
-              <button
-                type="button"
-                onClick={() => setVista("form")}
-                className="px-3 py-1 text-xs md:text-sm border border-blue-600 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
-              >
-                Nuevo reporte
-              </button>
-            </div>
-
-            {registros.length === 0 ? (
-              <p className="text-[11px] text-slate-500">
-                No hay registros guardados en este navegador. Haz clic en{" "}
-                <span className="font-semibold">"Nuevo reporte"</span> para crear
-                el primero.
-              </p>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full border text-[11px]">
-                    <thead>
-                      <tr className="bg-slate-100">
-                        <th className="border px-2 py-1">#</th>
-                        <th className="border px-2 py-1">Fecha</th>
-                        <th className="border px-2 py-1">Cliente</th>
-                        <th className="border px-2 py-1">Equipo</th>
-                        <th className="border px-2 py-1">Ubicación</th>
-                        <th className="border px-2 py-1">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {registros.map((r, idx) => (
-                        <tr key={r.id || idx}>
-                          <td className="border px-2 py-1 text-center">
-                            {idx + 1}
-                          </td>
-                          <td className="border px-2 py-1 text-center">
-                            {r.fechaStr}
-                          </td>
-                          <td className="border px-2 py-1">
-                            {r.clienteInspeccion}
-                          </td>
-                          <td className="border px-2 py-1 text-center">
-                            {r.numeroEquipo}
-                          </td>
-                          <td className="border px-2 py-1">{r.ubicacion}</td>
-                          <td className="border px-2 py-1 text-center space-x-2">
-                            <button
-                              type="button"
-                              onClick={() => r.pdfDataUrl && setPdfSeleccionado(r.pdfDataUrl)}
-                              className="px-2 py-1 border border-slate-400 rounded text-[10px] text-slate-700 hover:bg-slate-100"
-                            >
-                              Ver PDF
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => descargarPdfDesdeRegistro(r)}
-                              className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50"
-                            >
-                              Descargar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="mt-2 text-[10px] text-slate-500">
-                  * Estos registros se guardan solo en este navegador
-                  (localStorage). Si borras los datos del navegador o usas otro
-                  dispositivo, no estarán disponibles.
-                </p>
-              </>
-            )}
+        <div className="w-full max-w-5xl bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
+          <div className="flex justify-between items-center mb-3">
+            <h1 className="font-bold text-sm md:text-base">
+              Registros de horas y kilometrajes
+            </h1>
+            <button
+              type="button"
+              onClick={() => setVista("form")}
+              className="px-3 py-1 text-xs md:text-sm border border-blue-600 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            >
+              Nuevo reporte
+            </button>
           </div>
 
-          {/* VISOR DE PDF DENTRO DE LA PÁGINA */}
-          {pdfSeleccionado && (
-            <div className="w-full bg-white border border-slate-300 rounded p-2">
-              <div className="flex justify-between items-center mb-2 text-[11px] md:text-xs">
-                <span className="font-semibold">
-                  Vista previa del PDF seleccionado
-                </span>
-                <span className="text-slate-500">
-                  (usa el scroll dentro del visor)
-                </span>
+          {registros.length === 0 ? (
+            <p className="text-[11px] text-slate-500">
+              No hay registros guardados en este navegador. Haz clic en{" "}
+              <span className="font-semibold">"Nuevo reporte"</span> para crear
+              el primero.
+            </p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full border text-[11px]">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="border px-2 py-1">#</th>
+                      <th className="border px-2 py-1">Fecha</th>
+                      <th className="border px-2 py-1">Cliente</th>
+                      <th className="border px-2 py-1">Equipo</th>
+                      <th className="border px-2 py-1">Ubicación</th>
+                      <th className="border px-2 py-1">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registros.map((r, idx) => (
+                      <tr key={r.id || idx}>
+                        <td className="border px-2 py-1 text-center">
+                          {idx + 1}
+                        </td>
+                        <td className="border px-2 py-1 text-center">
+                          {r.fechaStr}
+                        </td>
+                        <td className="border px-2 py-1">
+                          {r.clienteInspeccion}
+                        </td>
+                        <td className="border px-2 py-1 text-center">
+                          {r.numeroEquipo}
+                        </td>
+                        <td className="border px-2 py-1">{r.ubicacion}</td>
+                        <td className="border px-2 py-1 text-center">
+                          <button
+                            type="button"
+                            onClick={() => descargarPdfDesdeRegistro(r)}
+                            className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50"
+                          >
+                            Descargar PDF
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="w-full h-[480px] border border-slate-300">
-                <iframe
-                  title="Visor PDF"
-                  src={pdfSeleccionado}
-                  className="w-full h-full"
-                />
-              </div>
-            </div>
+              <p className="mt-2 text-[10px] text-slate-500">
+                * Estos registros se guardan solo en este navegador
+                (localStorage). Si cambias de dominio/URL o borras los datos del
+                navegador, no estarán disponibles.
+              </p>
+            </>
           )}
         </div>
       )}
 
-      {/* ====== VISTA FORMULARIO: NUEVO REPORTE ====== */}
+      {/* FORMULARIO */}
       {vista === "form" && (
         <>
           <div className="w-full max-w-5xl flex justify-between items-center mb-2">
@@ -676,7 +593,6 @@ const HojaRegistroHoras = () => {
               {/* ENCABEZADO */}
               <div className="flex border-b border-black">
                 <div className="w-28 md:w-32 border-r border-black flex items-center justify-center p-2">
-                  {/* Aquí puedes reemplazar por <img src="/logo-astap.png" ... /> */}
                   <span className="font-bold text-lg uppercase">ASTAP</span>
                 </div>
                 <div className="flex-1 flex items-center justify-center px-2">
@@ -706,7 +622,7 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
-              {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE EQUIPO */}
+              {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE */}
               <div className="grid grid-cols-12 border-b border-black">
                 <div className="col-span-6 border-r border-black">
                   <div className="flex">
@@ -860,7 +776,7 @@ const HojaRegistroHoras = () => {
                 />
               </div>
 
-              {/* IMÁGENES GENERALES CON PREVIEW */}
+              {/* IMÁGENES GENERALES */}
               <div className="flex border-b border-black">
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                   Imágenes:
@@ -889,7 +805,7 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
-              {/* FIRMA DIGITAL */}
+              {/* FIRMA */}
               <div className="border-b border-black px-4 py-3">
                 <div className="border border-black h-24 flex flex-col">
                   <canvas
@@ -922,7 +838,7 @@ const HojaRegistroHoras = () => {
               </div>
             </div>
 
-            {/* BOTONES FORMULARIO */}
+            {/* BOTONES */}
             <div className="flex justify-between p-3">
               <button
                 type="button"
