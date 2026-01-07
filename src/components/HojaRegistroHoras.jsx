@@ -2,8 +2,19 @@
 import React, { useState, useRef, useEffect } from "react";
 import { jsPDF } from "jspdf";
 
-// Reemplaza null por tu dataURL base64 del logo, por ejemplo:
-// const ASTAP_LOGO_BASE64 = "data:image/png;base64,AAAA....";
+/** ======================
+ *  CONFIG WHATSAPP
+ *  ====================== */
+// Número con código país, sin +, sin espacios
+const SUPPORT_PHONE = "593958897066";
+
+const SUPPORT_DEFAULT_MESSAGE =
+  "Hola, necesito soporte con un reporte generado en CONTROL HORAS Y KM (ASTAP).";
+
+/** ======================
+ *  LOGO PDF
+ *  ====================== */
+// Reemplaza null por tu dataURL base64 del logo (si lo deseas)
 const ASTAP_LOGO_BASE64 = null;
 
 /* ====================== UTILIDADES PDF ====================== */
@@ -84,15 +95,14 @@ const buildPdf = (doc, data) => {
   const imagenesRestantes =
     imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
 
-  // CABECERA
   drawTopHeader(doc, pageWidth, margin);
   let y = 22;
 
-  // DATOS GENERALES
   drawSectionHeader(doc, "DATOS GENERALES", y, pageWidth, margin);
   y += 9;
 
   const columnMid = pageWidth / 2;
+
   let leftY = y + 3;
   doc.text(`Cliente: ${clienteInspeccion || ""}`, margin + 2, leftY);
   leftY += 5;
@@ -107,7 +117,6 @@ const buildPdf = (doc, data) => {
 
   y = Math.max(leftY, rightY) + 8;
 
-  // CHASIS
   drawSectionHeader(doc, "CHASIS", y, pageWidth, margin);
   y += 9;
 
@@ -141,14 +150,12 @@ const buildPdf = (doc, data) => {
 
   y += chasisBoxHeight + 10;
 
-  // HORAS
   drawSectionHeader(doc, "HORAS", y, pageWidth, margin);
   y += 9;
 
   const horasBoxHeight = 20;
   const horasBoxWidth = (pageWidth - margin * 2 - 4) / 2;
 
-  doc.setDrawColor(0);
   doc.rect(margin, y, horasBoxWidth, horasBoxHeight);
   doc.setFont("helvetica", "bold");
   doc.text("Generales:", margin + 2, y + 5);
@@ -158,8 +165,8 @@ const buildPdf = (doc, data) => {
   });
 
   const horasEspX = margin + horasBoxWidth + 4;
-  doc.setFont("helvetica", "bold");
   doc.rect(horasEspX, y, horasBoxWidth, horasBoxHeight);
+  doc.setFont("helvetica", "bold");
   doc.text("Específicas:", horasEspX + 2, y + 5);
   doc.setFont("helvetica", "normal");
   doc.text((horasEspecificas || "").toString(), horasEspX + 2, y + 10, {
@@ -168,7 +175,6 @@ const buildPdf = (doc, data) => {
 
   y += horasBoxHeight + 10;
 
-  // DETALLES
   drawSectionHeader(doc, "DETALLES", y, pageWidth, margin);
   y += 9;
 
@@ -198,7 +204,6 @@ const buildPdf = (doc, data) => {
 
   y += detallesBoxHeight + 10;
 
-  // FOTOS DEL EQUIPO
   if (imagenesRestantes.length > 0) {
     drawSectionHeader(doc, "FOTOS DEL EQUIPO", y, pageWidth, margin);
     y += 9;
@@ -243,7 +248,6 @@ const buildPdf = (doc, data) => {
     y = lastRowBottom + 10;
   }
 
-  // FIRMAS
   const firmaBoxH = 25;
   const firmasEstimated = 9 + 7 + firmaBoxH + 15;
 
@@ -264,14 +268,16 @@ const buildPdf = (doc, data) => {
     addFittedImage(doc, firmaDataUrl, margin, y + 7, firmaBoxW, firmaBoxH);
   }
   doc.setFont("helvetica", "normal");
-  doc.text(
-    responsableEquipo || "",
-    margin,
-    y + 7 + firmaBoxH + 5
-  );
+  doc.text(responsableEquipo || "", margin, y + 7 + firmaBoxH + 5);
 };
 
-/* ====================== COMPONENTE PRINCIPAL ====================== */
+/* ====================== WHATSAPP HELPERS ====================== */
+
+const buildWhatsAppLink = (phone, message) => {
+  const text = encodeURIComponent(message || "");
+  if (phone && phone.trim()) return `https://wa.me/${phone}?text=${text}`;
+  return `https://wa.me/?text=${text}`;
+};
 
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
@@ -281,26 +287,19 @@ const HojaRegistroHoras = () => {
   const [vista, setVista] = useState("list");
   const [registros, setRegistros] = useState([]);
 
-  // cargar registros guardados
   useEffect(() => {
     try {
       const stored = localStorage.getItem("registrosHrsKm");
-      if (stored) {
-        setRegistros(JSON.parse(stored));
-      }
+      if (stored) setRegistros(JSON.parse(stored));
     } catch (err) {
-      console.error("Error leyendo registros de localStorage:", err);
+      console.error("Error leyendo registros:", err);
     }
   }, []);
 
   const guardarRegistroLocal = (registro) => {
     setRegistros((prev) => {
       const updated = [...prev, registro];
-      try {
-        localStorage.setItem("registrosHrsKm", JSON.stringify(updated));
-      } catch (err) {
-        console.error("Error guardando en localStorage:", err);
-      }
+      localStorage.setItem("registrosHrsKm", JSON.stringify(updated));
       return updated;
     });
   };
@@ -308,11 +307,63 @@ const HojaRegistroHoras = () => {
   const descargarPdfDesdeRegistro = (registro) => {
     const doc = new jsPDF("l", "mm", "a4");
     buildPdf(doc, registro);
-    const nombreArchivo =
-      registro.numeroEquipo && registro.numeroEquipo.trim() !== ""
-        ? `hoja-registro-${registro.numeroEquipo}.pdf`
-        : "hoja-registro.pdf";
+    const nombreArchivo = registro.numeroEquipo?.trim()
+      ? `hoja-registro-${registro.numeroEquipo}.pdf`
+      : "hoja-registro.pdf";
     doc.save(nombreArchivo);
+  };
+
+  /** ✅ Mensaje profesional con datos del reporte */
+  const buildReportMessage = (r) => {
+    const lines = [
+      "📄 *REPORTE ASTAP – CONTROL HORAS Y KM*",
+      "",
+      `📅 *Fecha:* ${r.fechaStr || "-"}`,
+      `🏢 *Cliente:* ${r.clienteInspeccion || "-"}`,
+      `🧰 *Equipo:* ${r.numeroEquipo || "-"}`,
+      `📍 *Ubicación:* ${r.ubicacion || "-"}`,
+      "",
+      "Adjunto el PDF del reporte.",
+      "Por favor confirmar recepción.",
+    ];
+    return lines.join("\n");
+  };
+
+  /** ✅ Enviar PDF por WhatsApp (share en móvil) */
+  const enviarPdfPorWhatsApp = async (registro) => {
+    const doc = new jsPDF("l", "mm", "a4");
+    buildPdf(doc, registro);
+
+    const pdfBlob = doc.output("blob");
+    const fileName = registro.numeroEquipo?.trim()
+      ? `hoja-registro-${registro.numeroEquipo}.pdf`
+      : "hoja-registro.pdf";
+
+    // Si soporta compartir archivos (móvil)
+    try {
+      if (navigator.share && navigator.canShare) {
+        const file = new File([pdfBlob], fileName, {
+          type: "application/pdf",
+        });
+
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: "Reporte ASTAP",
+            text: buildReportMessage(registro),
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      // si falla, cae al fallback
+      console.warn("Share falló, usando fallback WhatsApp:", e);
+    }
+
+    // Fallback: abrir WhatsApp con el mensaje y descargar para adjuntar manualmente
+    const msg = buildReportMessage(registro) + "\n\n⚠️ *Nota:* Adjunta el PDF descargado a este chat.";
+    window.open(buildWhatsAppLink(SUPPORT_PHONE, msg), "_blank");
+    doc.save(fileName);
   };
 
   // fecha actual
@@ -324,10 +375,9 @@ const HojaRegistroHoras = () => {
   );
   const [anio, setAnio] = useState(() => String(new Date().getFullYear()));
 
+  // firma
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-
-  /* ====== FIRMA ====== */
 
   const getCoords = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
@@ -342,9 +392,7 @@ const HojaRegistroHoras = () => {
   };
 
   const startDrawing = (e) => {
-    if (e.type.startsWith("touch")) {
-      e.preventDefault();
-    }
+    if (e.type.startsWith("touch")) e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -359,9 +407,7 @@ const HojaRegistroHoras = () => {
 
   const draw = (e) => {
     if (!isDrawing) return;
-    if (e.type.startsWith("touch")) {
-      e.preventDefault();
-    }
+    if (e.type.startsWith("touch")) e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -371,21 +417,17 @@ const HojaRegistroHoras = () => {
   };
 
   const stopDrawing = (e) => {
-    if (e && e.type && e.type.startsWith("touch")) {
-      e.preventDefault();
-    }
+    if (e && e.type && e.type.startsWith("touch")) e.preventDefault();
     setIsDrawing(false);
   };
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  /* ====== IMAGEN CHASIS (CÁMARA + GALERÍA) ====== */
-
+  // imágenes
   const handleImagenChasisChange = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) {
@@ -393,14 +435,10 @@ const HojaRegistroHoras = () => {
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => {
-      setImagenChasisUrl(reader.result);
-    };
+    reader.onload = () => setImagenChasisUrl(reader.result);
     reader.readAsDataURL(file);
     e.target.value = "";
   };
-
-  /* ====== IMÁGENES GENERALES (CÁMARA + GALERÍA) ====== */
 
   const handleImagenesChange = (e) => {
     const files = Array.from(e.target.files || []);
@@ -434,13 +472,9 @@ const HojaRegistroHoras = () => {
   const dataTextAreaClass =
     "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
-  /* ====== GENERAR PDF Y GUARDAR ====== */
-
   const handleGeneratePdf = (e) => {
     e.preventDefault();
-
-    const form = e.target;
-    const formData = new FormData(form);
+    const formData = new FormData(e.target);
 
     const numeroEquipo = formData.get("numeroEquipo") || "";
     const ubicacion = formData.get("ubicacion") || "";
@@ -449,13 +483,10 @@ const HojaRegistroHoras = () => {
     const horasGenerales = formData.get("horasGenerales") || "";
     const horasEspecificas = formData.get("horasEspecificas") || "";
     const detalles = formData.get("detalles") || "";
-
     const fechaStr = `${dia}/${mes}/${anio}`;
 
     let firmaDataUrl = null;
-    if (canvasRef.current) {
-      firmaDataUrl = canvasRef.current.toDataURL("image/png");
-    }
+    if (canvasRef.current) firmaDataUrl = canvasRef.current.toDataURL("image/png");
 
     const data = {
       numeroEquipo,
@@ -475,25 +506,31 @@ const HojaRegistroHoras = () => {
     const doc = new jsPDF("l", "mm", "a4");
     buildPdf(doc, data);
 
-    const nombreArchivo =
-      numeroEquipo && numeroEquipo.trim() !== ""
-        ? `hoja-registro-${numeroEquipo}.pdf`
-        : "hoja-registro.pdf";
+    const nombreArchivo = numeroEquipo?.trim()
+      ? `hoja-registro-${numeroEquipo}.pdf`
+      : "hoja-registro.pdf";
+
     doc.save(nombreArchivo);
 
-    const registro = {
-      id: Date.now(),
-      ...data,
-    };
-    guardarRegistroLocal(registro);
-
+    guardarRegistroLocal({ id: Date.now(), ...data });
     setVista("list");
   };
 
-  /* ====================== VISTAS ====================== */
+  const soporteLink = buildWhatsAppLink(SUPPORT_PHONE, SUPPORT_DEFAULT_MESSAGE);
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-start p-4 gap-6">
+      {/* BOTÓN FLOTANTE SOPORTE (RECUADRO VERDE) */}
+      <a
+        href={soporteLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-4 right-4 z-50 px-4 py-3 rounded-full bg-green-600 text-white font-semibold text-sm shadow-lg hover:bg-green-700"
+        title="Chat WhatsApp"
+      >
+        WhatsApp
+      </a>
+
       {/* LISTADO */}
       {vista === "list" && (
         <div className="w-full max-w-5xl bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
@@ -512,9 +549,7 @@ const HojaRegistroHoras = () => {
 
           {registros.length === 0 ? (
             <p className="text-[11px] text-slate-500">
-              No hay registros guardados en este navegador. Haz clic en{" "}
-              <span className="font-semibold">"Nuevo reporte"</span> para crear
-              el primero.
+              No hay registros guardados en este navegador.
             </p>
           ) : (
             <>
@@ -533,37 +568,40 @@ const HojaRegistroHoras = () => {
                   <tbody>
                     {registros.map((r, idx) => (
                       <tr key={r.id || idx}>
-                        <td className="border px-2 py-1 text-center">
-                          {idx + 1}
-                        </td>
-                        <td className="border px-2 py-1 text-center">
-                          {r.fechaStr}
-                        </td>
-                        <td className="border px-2 py-1">
-                          {r.clienteInspeccion}
-                        </td>
-                        <td className="border px-2 py-1 text-center">
-                          {r.numeroEquipo}
-                        </td>
+                        <td className="border px-2 py-1 text-center">{idx + 1}</td>
+                        <td className="border px-2 py-1 text-center">{r.fechaStr}</td>
+                        <td className="border px-2 py-1">{r.clienteInspeccion}</td>
+                        <td className="border px-2 py-1 text-center">{r.numeroEquipo}</td>
                         <td className="border px-2 py-1">{r.ubicacion}</td>
-                        <td className="border px-2 py-1 text-center">
-                          <button
-                            type="button"
-                            onClick={() => descargarPdfDesdeRegistro(r)}
-                            className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50"
-                          >
-                            Descargar PDF
-                          </button>
+
+                        {/* RECUADRO ROJO: ACCIONES */}
+                        <td className="border px-2 py-1">
+                          <div className="flex gap-2 justify-center flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => descargarPdfDesdeRegistro(r)}
+                              className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50"
+                            >
+                              Descargar PDF
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => enviarPdfPorWhatsApp(r)}
+                              className="px-2 py-1 border border-green-600 rounded text-[10px] text-green-700 hover:bg-green-50"
+                            >
+                              Enviar WhatsApp
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
               <p className="mt-2 text-[10px] text-slate-500">
-                * Estos registros se guardan solo en este navegador
-                (localStorage). Si cambias de dominio/URL o borras los datos del
-                navegador, no estarán disponibles.
+                * Estos registros se guardan en este navegador (localStorage).
               </p>
             </>
           )}
@@ -586,10 +624,7 @@ const HojaRegistroHoras = () => {
             </span>
           </div>
 
-          <form
-            onSubmit={handleGeneratePdf}
-            className="w-full max-w-5xl text-[11px] md:text-xs"
-          >
+          <form onSubmit={handleGeneratePdf} className="w-full max-w-5xl text-[11px] md:text-xs">
             <div className="bg-white border-4 border-blue-600 w-full">
               {/* ENCABEZADO */}
               <div className="flex border-b border-black">
@@ -598,8 +633,7 @@ const HojaRegistroHoras = () => {
                 </div>
                 <div className="flex-1 flex items-center justify-center px-2">
                   <h1 className="text-center font-bold uppercase leading-tight">
-                    Hoja de registro de horas y kilometrajes equipos
-                    hidrosuccionadores
+                    Hoja de registro de horas y kilometrajes equipos hidrosuccionadores
                   </h1>
                 </div>
               </div>
@@ -610,24 +644,16 @@ const HojaRegistroHoras = () => {
                   <div className="flex">
                     <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase leading-tight text-[10px] md:text-[11px]">
                       Número de equipo
-                      <span className="block normal-case text-[9px]">
-                        (en caso de aplicar):
-                      </span>
+                      <span className="block normal-case text-[9px]">(en caso de aplicar):</span>
                     </label>
-                    <input
-                      className={dataInputClass}
-                      name="numeroEquipo"
-                      type="text"
-                    />
+                    <input className={dataInputClass} name="numeroEquipo" type="text" />
                   </div>
                 </div>
               </div>
 
               {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE */}
               <div className="border-b border-black grid grid-cols-1 md:grid-cols-2">
-                {/* Columna izquierda: FECHA + UBICACIÓN */}
                 <div className="border-b md:border-b-0 md:border-r border-black">
-                  {/* FECHA */}
                   <div className="flex">
                     <label className="w-32 md:w-40 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Fecha:
@@ -654,34 +680,22 @@ const HojaRegistroHoras = () => {
                     </div>
                   </div>
 
-                  {/* UBICACIÓN */}
                   <div className="flex border-t border-black">
                     <label className="w-32 md:w-40 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Ubicación:
                     </label>
-                    <input
-                      className={dataInputClass}
-                      name="ubicacion"
-                      type="text"
-                    />
+                    <input className={dataInputClass} name="ubicacion" type="text" />
                   </div>
                 </div>
 
-                {/* Columna derecha: CLIENTE + RESPONSABLE */}
                 <div>
-                  {/* CLIENTE */}
                   <div className="border-b border-black flex">
                     <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Cliente:
                     </label>
-                    <input
-                      className={dataInputClass}
-                      name="clienteInspeccion"
-                      type="text"
-                    />
+                    <input className={dataInputClass} name="clienteInspeccion" type="text" />
                   </div>
 
-                  {/* RESPONSABLE EQUIPO */}
                   <div className="flex">
                     <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase leading-tight text-[10px] md:text-[11px]">
                       Responsable
@@ -699,148 +713,80 @@ const HojaRegistroHoras = () => {
               </div>
 
               {/* CHASIS */}
-              <div className="border-b border-black text-center py-1 font-semibold uppercase">
-                Chasis
-              </div>
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">Chasis</div>
 
-              {/* KILÓMETROS + IMAGEN CHASIS */}
               <div className="grid grid-cols-3 border-b border-black">
                 <div className="col-span-2 flex">
-                  <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                    Kilómetros:
-                  </label>
-                  <textarea
-                    className={`${dataTextAreaClass} h-20`}
-                    name="kilometros"
-                  />
+                  <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">Kilómetros:</label>
+                  <textarea className={`${dataTextAreaClass} h-20`} name="kilometros" />
                 </div>
 
                 <div className="border-l border-black flex flex-col">
-                  <div className="border-b border-black text-center py-1 font-semibold uppercase">
-                    Imagen
-                  </div>
+                  <div className="border-b border-black text-center py-1 font-semibold uppercase">Imagen</div>
                   <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1 py-1">
-                    <span className="text-[10px]">
-                      Adjuntar imagen / foto del chasis
-                    </span>
+                    <span className="text-[10px]">Adjuntar imagen / foto del chasis</span>
 
-                    {/* Botones cámara / galería para chasis */}
                     <div className="flex flex-wrap gap-2">
                       <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
                         Tomar foto
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          onChange={handleImagenChasisChange}
-                        />
+                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImagenChasisChange} />
                       </label>
 
                       <label className="px-2 py-1 border border-slate-500 rounded text-[10px] text-slate-700 hover:bg-slate-100 cursor-pointer">
                         Cargar desde galería
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleImagenChasisChange}
-                        />
+                        <input type="file" accept="image/*" className="hidden" onChange={handleImagenChasisChange} />
                       </label>
                     </div>
 
-                    {imagenChasisUrl && (
-                      <img
-                        src={imagenChasisUrl}
-                        alt="Chasis"
-                        style={imageBoxStyle}
-                      />
-                    )}
+                    {imagenChasisUrl && <img src={imagenChasisUrl} alt="Chasis" style={imageBoxStyle} />}
                   </div>
                 </div>
               </div>
 
-              {/* MÓDULO */}
-              <div className="border-b border-black text-center py-1 font-semibold uppercase">
-                Módulo
-              </div>
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">Módulo</div>
 
-              {/* HORAS GENERALES */}
               <div className="flex border-b border-black">
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                  Horas:
-                  <span className="normal-case"> (generales)</span>
+                  Horas:<span className="normal-case"> (generales)</span>
                 </label>
-                <textarea
-                  className={`${dataTextAreaClass} h-16`}
-                  name="horasGenerales"
-                />
+                <textarea className={`${dataTextAreaClass} h-16`} name="horasGenerales" />
               </div>
 
-              {/* HORAS ESPECÍFICAS */}
               <div className="flex border-b border-black">
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                  Horas:
-                  <span className="normal-case"> (específicas)</span>
+                  Horas:<span className="normal-case"> (específicas)</span>
                 </label>
-                <textarea
-                  className={`${dataTextAreaClass} h-16`}
-                  name="horasEspecificas"
-                />
+                <textarea className={`${dataTextAreaClass} h-16`} name="horasEspecificas" />
               </div>
 
-              {/* DETALLES */}
               <div className="flex border-b border-black">
                 <div className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                   Detalles:
                   <div className="normal-case text-[9px] mt-1 leading-tight">
-                    (Espacio para ingresar novedades referentes al equipo, su
-                    operación o funcionamiento)
+                    (Espacio para ingresar novedades referentes al equipo, su operación o funcionamiento)
                   </div>
                 </div>
-                <textarea
-                  className={`${dataTextAreaClass} h-20`}
-                  name="detalles"
-                />
+                <textarea className={`${dataTextAreaClass} h-20`} name="detalles" />
               </div>
 
-              {/* IMÁGENES GENERALES */}
               <div className="flex border-b border-black">
-                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                  Imágenes:
-                </label>
+                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">Imágenes:</label>
                 <div className="flex-1 flex flex-col px-2 py-1 gap-2">
                   <div className="flex flex-wrap gap-2">
                     <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
                       Tomar foto
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        onChange={handleImagenesChange}
-                      />
+                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImagenesChange} />
                     </label>
                     <label className="px-2 py-1 border border-slate-500 rounded text-[10px] text-slate-700 hover:bg-slate-100 cursor-pointer">
                       Cargar desde galería
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImagenesChange}
-                      />
+                      <input type="file" multiple accept="image/*" className="hidden" onChange={handleImagenesChange} />
                     </label>
                   </div>
 
                   {imagenesUrls.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {imagenesUrls.map((url, idx) => (
-                        <img
-                          key={idx}
-                          src={url}
-                          alt={`Imagen ${idx + 1}`}
-                          style={imageBoxStyle}
-                        />
+                        <img key={idx} src={url} alt={`Imagen ${idx + 1}`} style={imageBoxStyle} />
                       ))}
                     </div>
                   )}
@@ -855,20 +801,19 @@ const HojaRegistroHoras = () => {
                     width={600}
                     height={90}
                     className="w-full h-full"
-                    style={{ touchAction: "none" }}   // 👈 clave para que no haga scroll/zoom
-                    onMouseDown={startDrawing}
-                    onMouseMove={draw}
-                    onMouseUp={stopDrawing}
-                    onMouseLeave={stopDrawing}
-                    onTouchStart={startDrawing}
-                    onTouchMove={draw}
-                    onTouchEnd={stopDrawing}
+                    style={{ touchAction: "none" }}
+                    onMouseDown={(e) => startDrawing(e)}
+                    onMouseMove={(e) => draw(e)}
+                    onMouseUp={(e) => stopDrawing(e)}
+                    onMouseLeave={(e) => stopDrawing(e)}
+                    onTouchStart={(e) => startDrawing(e)}
+                    onTouchMove={(e) => draw(e)}
+                    onTouchEnd={(e) => stopDrawing(e)}
                   />
                 </div>
                 <div className="flex justify-between items-center mt-1">
                   <p className="text-xs text-center flex-1 text-blue-600">
-                    {responsableEquipo ||
-                      "Nombre del responsable del equipo"}
+                    {responsableEquipo || "Nombre del responsable del equipo"}
                   </p>
                   <button
                     type="button"
@@ -881,7 +826,6 @@ const HojaRegistroHoras = () => {
               </div>
             </div>
 
-            {/* BOTONES */}
             <div className="flex justify-between p-3">
               <button
                 type="button"
