@@ -1,33 +1,47 @@
 // src/components/HojaRegistroHoras.jsx
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 
 /** ======================
  *  CONFIG WHATSAPP
  *  ====================== */
-// Número con código país, sin +, sin espacios
-const SUPPORT_PHONE = "593958897066";
+const SUPPORT_PHONE = "593958897066"; // sin "+", sin espacios
 
 const SUPPORT_DEFAULT_MESSAGE =
   "Hola, necesito soporte con un reporte generado en CONTROL HORAS Y KM (ASTAP).";
 
 /** ======================
- *  LOGO PDF
+ *  LOGO PDF (opcional)
  *  ====================== */
-// Reemplaza null por tu dataURL base64 del logo (si lo deseas)
 const ASTAP_LOGO_BASE64 = null;
 
-/* ====================== UTILIDADES PDF ====================== */
+/* ====================== PDF HELPERS ====================== */
+
+const createDoc = () =>
+  new jsPDF({ orientation: "l", unit: "mm", format: "a4", compress: true });
+
+// Detecta el formato real desde el dataURL
+const detectImageFormat = (dataUrl) => {
+  if (!dataUrl || typeof dataUrl !== "string") return "PNG";
+  if (dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg"))
+    return "JPEG";
+  if (dataUrl.startsWith("data:image/png")) return "PNG";
+  return "PNG";
+};
 
 const addFittedImage = (doc, dataUrl, x, y, boxW, boxH) => {
   if (!dataUrl) return;
+
+  const format = detectImageFormat(dataUrl);
   const props = doc.getImageProperties(dataUrl);
   const ratio = Math.min(boxW / props.width, boxH / props.height);
   const w = props.width * ratio;
   const h = props.height * ratio;
   const offsetX = x + (boxW - w) / 2;
   const offsetY = y + (boxH - h) / 2;
-  doc.addImage(dataUrl, "PNG", offsetX, offsetY, w, h);
+
+  // ✅ "FAST" reduce peso y evita truncado en móvil
+  doc.addImage(dataUrl, format, offsetX, offsetY, w, h, undefined, "FAST");
 };
 
 const drawSectionHeader = (doc, text, y, pageWidth, margin) => {
@@ -90,14 +104,13 @@ const buildPdf = (doc, data) => {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
 
-  const imagenPrincipalDetalles =
-    imagenesUrls.length > 0 ? imagenesUrls[0] : null;
-  const imagenesRestantes =
-    imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
+  const imagenPrincipalDetalles = imagenesUrls.length > 0 ? imagenesUrls[0] : null;
+  const imagenesRestantes = imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
 
   drawTopHeader(doc, pageWidth, margin);
   let y = 22;
 
+  // DATOS GENERALES
   drawSectionHeader(doc, "DATOS GENERALES", y, pageWidth, margin);
   y += 9;
 
@@ -117,6 +130,7 @@ const buildPdf = (doc, data) => {
 
   y = Math.max(leftY, rightY) + 8;
 
+  // CHASIS
   drawSectionHeader(doc, "CHASIS", y, pageWidth, margin);
   y += 9;
 
@@ -129,27 +143,19 @@ const buildPdf = (doc, data) => {
   doc.setFont("helvetica", "bold");
   doc.text("Kilómetros:", margin + 2, y + 5);
   doc.setFont("helvetica", "normal");
-  doc.text((km || "").toString(), margin + 2, y + 10, {
-    maxWidth: chasisTextWidth - 4,
-  });
+  doc.text((km || "").toString(), margin + 2, y + 10, { maxWidth: chasisTextWidth - 4 });
 
   const imgX = margin + chasisTextWidth + 4;
   doc.setFont("helvetica", "bold");
   doc.text("Imagen chasis:", imgX, y + 5);
   doc.rect(imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
   if (imagenChasisUrl) {
-    addFittedImage(
-      doc,
-      imagenChasisUrl,
-      imgX,
-      y + 7,
-      chasisImgWidth,
-      chasisBoxHeight - 7
-    );
+    addFittedImage(doc, imagenChasisUrl, imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
   }
 
   y += chasisBoxHeight + 10;
 
+  // HORAS
   drawSectionHeader(doc, "HORAS", y, pageWidth, margin);
   y += 9;
 
@@ -160,21 +166,18 @@ const buildPdf = (doc, data) => {
   doc.setFont("helvetica", "bold");
   doc.text("Generales:", margin + 2, y + 5);
   doc.setFont("helvetica", "normal");
-  doc.text((horasGenerales || "").toString(), margin + 2, y + 10, {
-    maxWidth: horasBoxWidth - 4,
-  });
+  doc.text((horasGenerales || "").toString(), margin + 2, y + 10, { maxWidth: horasBoxWidth - 4 });
 
   const horasEspX = margin + horasBoxWidth + 4;
   doc.rect(horasEspX, y, horasBoxWidth, horasBoxHeight);
   doc.setFont("helvetica", "bold");
   doc.text("Específicas:", horasEspX + 2, y + 5);
   doc.setFont("helvetica", "normal");
-  doc.text((horasEspecificas || "").toString(), horasEspX + 2, y + 10, {
-    maxWidth: horasBoxWidth - 4,
-  });
+  doc.text((horasEspecificas || "").toString(), horasEspX + 2, y + 10, { maxWidth: horasBoxWidth - 4 });
 
   y += horasBoxHeight + 10;
 
+  // DETALLES
   drawSectionHeader(doc, "DETALLES", y, pageWidth, margin);
   y += 9;
 
@@ -185,25 +188,17 @@ const buildPdf = (doc, data) => {
 
   doc.rect(margin, y, detallesTextWidth, detallesBoxHeight);
   doc.setFont("helvetica", "normal");
-  doc.text((detalles || "").toString(), margin + 2, y + 5, {
-    maxWidth: detallesTextWidth - 4,
-  });
+  doc.text((detalles || "").toString(), margin + 2, y + 5, { maxWidth: detallesTextWidth - 4 });
 
   const detallesImgX = margin + detallesTextWidth + 4;
   doc.rect(detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   if (imagenPrincipalDetalles) {
-    addFittedImage(
-      doc,
-      imagenPrincipalDetalles,
-      detallesImgX,
-      y,
-      detallesImgWidth,
-      detallesBoxHeight
-    );
+    addFittedImage(doc, imagenPrincipalDetalles, detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   }
 
   y += detallesBoxHeight + 10;
 
+  // FOTOS DEL EQUIPO (multipágina)
   if (imagenesRestantes.length > 0) {
     drawSectionHeader(doc, "FOTOS DEL EQUIPO", y, pageWidth, margin);
     y += 9;
@@ -220,13 +215,7 @@ const buildPdf = (doc, data) => {
         doc.addPage();
         drawTopHeader(doc, pageWidth, margin);
         let y2 = 22;
-        drawSectionHeader(
-          doc,
-          "FOTOS DEL EQUIPO (CONTINUACIÓN)",
-          y2,
-          pageWidth,
-          margin
-        );
+        drawSectionHeader(doc, "FOTOS DEL EQUIPO (CONTINUACIÓN)", y2, pageWidth, margin);
         y2 += 9;
         fotoX = margin;
         fotoY = y2;
@@ -248,6 +237,7 @@ const buildPdf = (doc, data) => {
     y = lastRowBottom + 10;
   }
 
+  // FIRMAS
   const firmaBoxH = 25;
   const firmasEstimated = 9 + 7 + firmaBoxH + 15;
 
@@ -264,9 +254,11 @@ const buildPdf = (doc, data) => {
   doc.setFont("helvetica", "bold");
   doc.text("Responsable equipo:", margin + 2, y + 5);
   doc.rect(margin, y + 7, firmaBoxW, firmaBoxH);
+
   if (firmaDataUrl) {
     addFittedImage(doc, firmaDataUrl, margin, y + 7, firmaBoxW, firmaBoxH);
   }
+
   doc.setFont("helvetica", "normal");
   doc.text(responsableEquipo || "", margin, y + 7 + firmaBoxH + 5);
 };
@@ -279,6 +271,53 @@ const buildWhatsAppLink = (phone, message) => {
   return `https://wa.me/?text=${text}`;
 };
 
+/* ====================== IMAGE COMPRESSION (BLINDADO) ====================== */
+/**
+ * Reduce imágenes tomadas con cámara (12MP/48MP) a un tamaño manejable.
+ * - maxDim: lado máximo (px)
+ * - quality: calidad JPEG (0..1)
+ * Retorna dataURL (JPEG).
+ */
+const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}) =>
+  new Promise((resolve) => {
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const w = img.width;
+        const h = img.height;
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        const nw = Math.round(w * scale);
+        const nh = Math.round(h * scale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = nw;
+        canvas.height = nh;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, nw, nh);
+
+        // JPEG para peso bajo (ideal WhatsApp)
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        URL.revokeObjectURL(url);
+        resolve(dataUrl);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        // fallback a FileReader original
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.readAsDataURL(file);
+      };
+      img.src = url;
+    } catch (e) {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.readAsDataURL(file);
+    }
+  });
+
+/* ====================== COMPONENTE ====================== */
+
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
   const [imagenChasisUrl, setImagenChasisUrl] = useState(null);
@@ -286,6 +325,35 @@ const HojaRegistroHoras = () => {
 
   const [vista, setVista] = useState("list");
   const [registros, setRegistros] = useState([]);
+
+  // WhatsApp FAB colapsable
+  const [waOpen, setWaOpen] = useState(false);
+
+  // fecha actual
+  const [dia, setDia] = useState(() => String(new Date().getDate()).padStart(2, "0"));
+  const [mes, setMes] = useState(() => String(new Date().getMonth() + 1).padStart(2, "0"));
+  const [anio, setAnio] = useState(() => String(new Date().getFullYear()));
+
+  // firma
+  const canvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  // ✅ Evita scroll/lentitud en firma: listeners no-passive
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const prevent = (e) => e.preventDefault();
+
+    // Evita scroll mientras firmas
+    canvas.addEventListener("touchstart", prevent, { passive: false });
+    canvas.addEventListener("touchmove", prevent, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("touchstart", prevent);
+      canvas.removeEventListener("touchmove", prevent);
+    };
+  }, [vista]);
 
   useEffect(() => {
     try {
@@ -299,21 +367,19 @@ const HojaRegistroHoras = () => {
   const guardarRegistroLocal = (registro) => {
     setRegistros((prev) => {
       const updated = [...prev, registro];
-      localStorage.setItem("registrosHrsKm", JSON.stringify(updated));
+      try {
+        localStorage.setItem("registrosHrsKm", JSON.stringify(updated));
+      } catch (err) {
+        console.error("No se pudo guardar en localStorage (posible límite):", err);
+        alert(
+          "⚠️ El navegador no pudo guardar el reporte (límite por imágenes). " +
+            "Sugerencia: menos fotos o menor calidad."
+        );
+      }
       return updated;
     });
   };
 
-  const descargarPdfDesdeRegistro = (registro) => {
-    const doc = new jsPDF("l", "mm", "a4");
-    buildPdf(doc, registro);
-    const nombreArchivo = registro.numeroEquipo?.trim()
-      ? `hoja-registro-${registro.numeroEquipo}.pdf`
-      : "hoja-registro.pdf";
-    doc.save(nombreArchivo);
-  };
-
-  /** ✅ Mensaje profesional con datos del reporte */
   const buildReportMessage = (r) => {
     const lines = [
       "📄 *REPORTE ASTAP – CONTROL HORAS Y KM*",
@@ -329,23 +395,32 @@ const HojaRegistroHoras = () => {
     return lines.join("\n");
   };
 
-  /** ✅ Enviar PDF por WhatsApp (share en móvil) */
-  const enviarPdfPorWhatsApp = async (registro) => {
-    const doc = new jsPDF("l", "mm", "a4");
+  const generatePdfBlob = (registro) => {
+    const doc = createDoc();
     buildPdf(doc, registro);
+    return doc.output("blob"); // ✅ estable en móvil
+  };
 
-    const pdfBlob = doc.output("blob");
+  const descargarPdfDesdeRegistro = (registro) => {
+    const doc = createDoc();
+    buildPdf(doc, registro);
+    const nombreArchivo = registro.numeroEquipo?.trim()
+      ? `hoja-registro-${registro.numeroEquipo}.pdf`
+      : "hoja-registro.pdf";
+    doc.save(nombreArchivo);
+  };
+
+  const enviarPdfPorWhatsApp = async (registro) => {
     const fileName = registro.numeroEquipo?.trim()
       ? `hoja-registro-${registro.numeroEquipo}.pdf`
       : "hoja-registro.pdf";
 
-    // Si soporta compartir archivos (móvil)
+    const pdfBlob = generatePdfBlob(registro);
+
+    // ✅ SHARE NATIVO (celular): manda el PDF completo (multi-hoja + firma)
     try {
       if (navigator.share && navigator.canShare) {
-        const file = new File([pdfBlob], fileName, {
-          type: "application/pdf",
-        });
-
+        const file = new File([pdfBlob], fileName, { type: "application/pdf" });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
@@ -356,50 +431,39 @@ const HojaRegistroHoras = () => {
         }
       }
     } catch (e) {
-      // si falla, cae al fallback
-      console.warn("Share falló, usando fallback WhatsApp:", e);
+      console.warn("Share falló, usando fallback:", e);
     }
 
-    // Fallback: abrir WhatsApp con el mensaje y descargar para adjuntar manualmente
-    const msg = buildReportMessage(registro) + "\n\n⚠️ *Nota:* Adjunta el PDF descargado a este chat.";
+    // Fallback: abre WhatsApp con mensaje y descarga para adjuntar
+    const msg =
+      buildReportMessage(registro) +
+      "\n\n⚠️ *Nota:* Adjunta el PDF descargado a este chat.";
     window.open(buildWhatsAppLink(SUPPORT_PHONE, msg), "_blank");
+
+    const doc = createDoc();
+    buildPdf(doc, registro);
     doc.save(fileName);
   };
 
-  // fecha actual
-  const [dia, setDia] = useState(() =>
-    String(new Date().getDate()).padStart(2, "0")
-  );
-  const [mes, setMes] = useState(() =>
-    String(new Date().getMonth() + 1).padStart(2, "0")
-  );
-  const [anio, setAnio] = useState(() => String(new Date().getFullYear()));
-
-  // firma
-  const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-
+  /* ====== FIRMA: DIBUJO ====== */
   const getCoords = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const t = e.touches?.[0];
+    const clientX = t ? t.clientX : e.clientX;
+    const clientY = t ? t.clientY : e.clientY;
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
-    };
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
   };
 
   const startDrawing = (e) => {
-    if (e.type.startsWith("touch")) e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     const { x, y } = getCoords(e, canvas);
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#000000";
+    ctx.strokeStyle = "#000";
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsDrawing(true);
@@ -407,7 +471,6 @@ const HojaRegistroHoras = () => {
 
   const draw = (e) => {
     if (!isDrawing) return;
-    if (e.type.startsWith("touch")) e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -416,10 +479,7 @@ const HojaRegistroHoras = () => {
     ctx.stroke();
   };
 
-  const stopDrawing = (e) => {
-    if (e && e.type && e.type.startsWith("touch")) e.preventDefault();
-    setIsDrawing(false);
-  };
+  const stopDrawing = () => setIsDrawing(false);
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
@@ -427,36 +487,30 @@ const HojaRegistroHoras = () => {
     canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  // imágenes
-  const handleImagenChasisChange = (e) => {
-    const file = e.target.files && e.target.files[0];
+  /* ====== IMÁGENES (BLINDADO) ====== */
+  const handleImagenChasisChange = async (e) => {
+    const file = e.target.files?.[0];
     if (!file) {
       setImagenChasisUrl(null);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setImagenChasisUrl(reader.result);
-    reader.readAsDataURL(file);
+
+    // ✅ compresión para no reventar PDF/WhatsApp
+    const dataUrl = await compressImageFileToDataUrl(file, { maxDim: 1280, quality: 0.75 });
+    setImagenChasisUrl(dataUrl);
+
     e.target.value = "";
   };
 
-  const handleImagenesChange = (e) => {
+  const handleImagenesChange = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const readers = files.map(
-      (file) =>
-        new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.readAsDataURL(file);
-        })
+    const compressed = await Promise.all(
+      files.map((f) => compressImageFileToDataUrl(f, { maxDim: 1280, quality: 0.75 }))
     );
 
-    Promise.all(readers).then((nuevasUrls) => {
-      setImagenesUrls((prev) => [...prev, ...nuevasUrls]);
-    });
-
+    setImagenesUrls((prev) => [...prev, ...compressed]);
     e.target.value = "";
   };
 
@@ -469,8 +523,7 @@ const HojaRegistroHoras = () => {
   };
 
   const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
-  const dataTextAreaClass =
-    "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
+  const dataTextAreaClass = "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
   const handleGeneratePdf = (e) => {
     e.preventDefault();
@@ -503,13 +556,12 @@ const HojaRegistroHoras = () => {
       firmaDataUrl,
     };
 
-    const doc = new jsPDF("l", "mm", "a4");
+    const doc = createDoc();
     buildPdf(doc, data);
 
     const nombreArchivo = numeroEquipo?.trim()
       ? `hoja-registro-${numeroEquipo}.pdf`
       : "hoja-registro.pdf";
-
     doc.save(nombreArchivo);
 
     guardarRegistroLocal({ id: Date.now(), ...data });
@@ -518,18 +570,54 @@ const HojaRegistroHoras = () => {
 
   const soporteLink = buildWhatsAppLink(SUPPORT_PHONE, SUPPORT_DEFAULT_MESSAGE);
 
+  // ✅ FAB: en móvil y en formulario lo subimos para que NO tape botones
+  const fabStyle = useMemo(() => {
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    const baseBottom = vista === "form" ? 120 : 16; // <<<<< clave por tu captura
+    return {
+      right: isMobile ? "12px" : "16px",
+      bottom: `calc(${baseBottom}px + env(safe-area-inset-bottom))`,
+    };
+  }, [vista]);
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-start p-4 gap-6">
-      {/* BOTÓN FLOTANTE SOPORTE (RECUADRO VERDE) */}
-      <a
-        href={soporteLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-4 right-4 z-50 px-4 py-3 rounded-full bg-green-600 text-white font-semibold text-sm shadow-lg hover:bg-green-700"
-        title="Chat WhatsApp"
-      >
-        WhatsApp
-      </a>
+      {/* WHATSAPP FAB COLAPSABLE */}
+      <div className="fixed z-50" style={fabStyle}>
+        {waOpen && (
+          <div className="mb-2 w-60 rounded-lg bg-white shadow-lg border border-slate-200 overflow-hidden">
+            <div className="px-3 py-2 text-[12px] font-semibold bg-slate-50 border-b border-slate-200">
+              WhatsApp
+            </div>
+            <div className="p-2 flex flex-col gap-2">
+              <a
+                href={soporteLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 rounded bg-green-600 text-white text-xs font-semibold hover:bg-green-700"
+              >
+                Abrir chat de soporte
+              </a>
+              <button
+                type="button"
+                onClick={() => setWaOpen(false)}
+                className="px-3 py-2 rounded border text-xs hover:bg-slate-50"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setWaOpen((v) => !v)}
+          className="w-12 h-12 rounded-full bg-green-600 text-white font-bold shadow-lg hover:bg-green-700 flex items-center justify-center"
+          title="WhatsApp"
+        >
+          WA
+        </button>
+      </div>
 
       {/* LISTADO */}
       {vista === "list" && (
@@ -574,7 +662,6 @@ const HojaRegistroHoras = () => {
                         <td className="border px-2 py-1 text-center">{r.numeroEquipo}</td>
                         <td className="border px-2 py-1">{r.ubicacion}</td>
 
-                        {/* RECUADRO ROJO: ACCIONES */}
                         <td className="border px-2 py-1">
                           <div className="flex gap-2 justify-center flex-wrap">
                             <button
@@ -703,7 +790,6 @@ const HojaRegistroHoras = () => {
                     </label>
                     <input
                       className={dataInputClass}
-                      name="responsableEquipoInput"
                       type="text"
                       value={responsableEquipo}
                       onChange={(e) => setResponsableEquipo(e.target.value)}
@@ -717,7 +803,9 @@ const HojaRegistroHoras = () => {
 
               <div className="grid grid-cols-3 border-b border-black">
                 <div className="col-span-2 flex">
-                  <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">Kilómetros:</label>
+                  <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                    Kilómetros:
+                  </label>
                   <textarea className={`${dataTextAreaClass} h-20`} name="kilometros" />
                 </div>
 
@@ -729,12 +817,23 @@ const HojaRegistroHoras = () => {
                     <div className="flex flex-wrap gap-2">
                       <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
                         Tomar foto
-                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImagenChasisChange} />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={handleImagenChasisChange}
+                        />
                       </label>
 
                       <label className="px-2 py-1 border border-slate-500 rounded text-[10px] text-slate-700 hover:bg-slate-100 cursor-pointer">
                         Cargar desde galería
-                        <input type="file" accept="image/*" className="hidden" onChange={handleImagenChasisChange} />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImagenChasisChange}
+                        />
                       </label>
                     </div>
 
@@ -775,11 +874,23 @@ const HojaRegistroHoras = () => {
                   <div className="flex flex-wrap gap-2">
                     <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
                       Tomar foto
-                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImagenesChange} />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleImagenesChange}
+                      />
                     </label>
                     <label className="px-2 py-1 border border-slate-500 rounded text-[10px] text-slate-700 hover:bg-slate-100 cursor-pointer">
                       Cargar desde galería
-                      <input type="file" multiple accept="image/*" className="hidden" onChange={handleImagenesChange} />
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImagenesChange}
+                      />
                     </label>
                   </div>
 
@@ -802,13 +913,13 @@ const HojaRegistroHoras = () => {
                     height={90}
                     className="w-full h-full"
                     style={{ touchAction: "none" }}
-                    onMouseDown={(e) => startDrawing(e)}
-                    onMouseMove={(e) => draw(e)}
-                    onMouseUp={(e) => stopDrawing(e)}
-                    onMouseLeave={(e) => stopDrawing(e)}
-                    onTouchStart={(e) => startDrawing(e)}
-                    onTouchMove={(e) => draw(e)}
-                    onTouchEnd={(e) => stopDrawing(e)}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
                   />
                 </div>
                 <div className="flex justify-between items-center mt-1">
