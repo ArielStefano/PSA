@@ -20,10 +20,12 @@ const ASTAP_LOGO_BASE64 = null;
 const createDoc = () =>
   new jsPDF({ orientation: "l", unit: "mm", format: "a4", compress: true });
 
-// Detecta el formato real desde el dataURL
 const detectImageFormat = (dataUrl) => {
   if (!dataUrl || typeof dataUrl !== "string") return "PNG";
-  if (dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg"))
+  if (
+    dataUrl.startsWith("data:image/jpeg") ||
+    dataUrl.startsWith("data:image/jpg")
+  )
     return "JPEG";
   if (dataUrl.startsWith("data:image/png")) return "PNG";
   return "PNG";
@@ -40,7 +42,7 @@ const addFittedImage = (doc, dataUrl, x, y, boxW, boxH) => {
   const offsetX = x + (boxW - w) / 2;
   const offsetY = y + (boxH - h) / 2;
 
-  // ✅ "FAST" reduce peso y evita truncado en móvil
+  // ✅ compresión FAST (menos peso, más estable en móvil)
   doc.addImage(dataUrl, format, offsetX, offsetY, w, h, undefined, "FAST");
 };
 
@@ -104,8 +106,11 @@ const buildPdf = (doc, data) => {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
 
-  const imagenPrincipalDetalles = imagenesUrls.length > 0 ? imagenesUrls[0] : null;
-  const imagenesRestantes = imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
+  // 1ª foto a DETALLES, resto a FOTOS
+  const imagenPrincipalDetalles =
+    imagenesUrls.length > 0 ? imagenesUrls[0] : null;
+  const imagenesRestantes =
+    imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
 
   drawTopHeader(doc, pageWidth, margin);
   let y = 22;
@@ -143,14 +148,24 @@ const buildPdf = (doc, data) => {
   doc.setFont("helvetica", "bold");
   doc.text("Kilómetros:", margin + 2, y + 5);
   doc.setFont("helvetica", "normal");
-  doc.text((km || "").toString(), margin + 2, y + 10, { maxWidth: chasisTextWidth - 4 });
+  doc.text((km || "").toString(), margin + 2, y + 10, {
+    maxWidth: chasisTextWidth - 4,
+  });
 
   const imgX = margin + chasisTextWidth + 4;
   doc.setFont("helvetica", "bold");
   doc.text("Imagen chasis:", imgX, y + 5);
   doc.rect(imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
+
   if (imagenChasisUrl) {
-    addFittedImage(doc, imagenChasisUrl, imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
+    addFittedImage(
+      doc,
+      imagenChasisUrl,
+      imgX,
+      y + 7,
+      chasisImgWidth,
+      chasisBoxHeight - 7
+    );
   }
 
   y += chasisBoxHeight + 10;
@@ -166,14 +181,18 @@ const buildPdf = (doc, data) => {
   doc.setFont("helvetica", "bold");
   doc.text("Generales:", margin + 2, y + 5);
   doc.setFont("helvetica", "normal");
-  doc.text((horasGenerales || "").toString(), margin + 2, y + 10, { maxWidth: horasBoxWidth - 4 });
+  doc.text((horasGenerales || "").toString(), margin + 2, y + 10, {
+    maxWidth: horasBoxWidth - 4,
+  });
 
   const horasEspX = margin + horasBoxWidth + 4;
   doc.rect(horasEspX, y, horasBoxWidth, horasBoxHeight);
   doc.setFont("helvetica", "bold");
   doc.text("Específicas:", horasEspX + 2, y + 5);
   doc.setFont("helvetica", "normal");
-  doc.text((horasEspecificas || "").toString(), horasEspX + 2, y + 10, { maxWidth: horasBoxWidth - 4 });
+  doc.text((horasEspecificas || "").toString(), horasEspX + 2, y + 10, {
+    maxWidth: horasBoxWidth - 4,
+  });
 
   y += horasBoxHeight + 10;
 
@@ -186,14 +205,25 @@ const buildPdf = (doc, data) => {
   const detallesTextWidth = totalDetallesWidth * 0.6;
   const detallesImgWidth = totalDetallesWidth - detallesTextWidth - 4;
 
+  // texto izquierda
   doc.rect(margin, y, detallesTextWidth, detallesBoxHeight);
   doc.setFont("helvetica", "normal");
-  doc.text((detalles || "").toString(), margin + 2, y + 5, { maxWidth: detallesTextWidth - 4 });
+  doc.text((detalles || "").toString(), margin + 2, y + 5, {
+    maxWidth: detallesTextWidth - 4,
+  });
 
+  // imagen derecha
   const detallesImgX = margin + detallesTextWidth + 4;
   doc.rect(detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   if (imagenPrincipalDetalles) {
-    addFittedImage(doc, imagenPrincipalDetalles, detallesImgX, y, detallesImgWidth, detallesBoxHeight);
+    addFittedImage(
+      doc,
+      imagenPrincipalDetalles,
+      detallesImgX,
+      y,
+      detallesImgWidth,
+      detallesBoxHeight
+    );
   }
 
   y += detallesBoxHeight + 10;
@@ -215,7 +245,13 @@ const buildPdf = (doc, data) => {
         doc.addPage();
         drawTopHeader(doc, pageWidth, margin);
         let y2 = 22;
-        drawSectionHeader(doc, "FOTOS DEL EQUIPO (CONTINUACIÓN)", y2, pageWidth, margin);
+        drawSectionHeader(
+          doc,
+          "FOTOS DEL EQUIPO (CONTINUACIÓN)",
+          y2,
+          pageWidth,
+          margin
+        );
         y2 += 9;
         fotoX = margin;
         fotoY = y2;
@@ -263,22 +299,12 @@ const buildPdf = (doc, data) => {
   doc.text(responsableEquipo || "", margin, y + 7 + firmaBoxH + 5);
 };
 
-/* ====================== WHATSAPP HELPERS ====================== */
-
-const buildWhatsAppLink = (phone, message) => {
-  const text = encodeURIComponent(message || "");
-  if (phone && phone.trim()) return `https://wa.me/${phone}?text=${text}`;
-  return `https://wa.me/?text=${text}`;
-};
-
 /* ====================== IMAGE COMPRESSION (BLINDADO) ====================== */
-/**
- * Reduce imágenes tomadas con cámara (12MP/48MP) a un tamaño manejable.
- * - maxDim: lado máximo (px)
- * - quality: calidad JPEG (0..1)
- * Retorna dataURL (JPEG).
- */
-const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}) =>
+
+const compressImageFileToDataUrl = (
+  file,
+  { maxDim = 1280, quality = 0.75 } = {}
+) =>
   new Promise((resolve) => {
     try {
       const url = URL.createObjectURL(file);
@@ -296,14 +322,13 @@ const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, nw, nh);
 
-        // JPEG para peso bajo (ideal WhatsApp)
+        // JPEG reduce tamaño (ideal WhatsApp)
         const dataUrl = canvas.toDataURL("image/jpeg", quality);
         URL.revokeObjectURL(url);
         resolve(dataUrl);
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        // fallback a FileReader original
         const fr = new FileReader();
         fr.onload = () => resolve(fr.result);
         fr.readAsDataURL(file);
@@ -315,6 +340,14 @@ const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}
       fr.readAsDataURL(file);
     }
   });
+
+/* ====================== WHATSAPP HELPERS ====================== */
+
+const buildWhatsAppLink = (phone, message) => {
+  const text = encodeURIComponent(message || "");
+  if (phone && phone.trim()) return `https://wa.me/${phone}?text=${text}`;
+  return `https://wa.me/?text=${text}`;
+};
 
 /* ====================== COMPONENTE ====================== */
 
@@ -330,22 +363,24 @@ const HojaRegistroHoras = () => {
   const [waOpen, setWaOpen] = useState(false);
 
   // fecha actual
-  const [dia, setDia] = useState(() => String(new Date().getDate()).padStart(2, "0"));
-  const [mes, setMes] = useState(() => String(new Date().getMonth() + 1).padStart(2, "0"));
+  const [dia, setDia] = useState(() =>
+    String(new Date().getDate()).padStart(2, "0")
+  );
+  const [mes, setMes] = useState(() =>
+    String(new Date().getMonth() + 1).padStart(2, "0")
+  );
   const [anio, setAnio] = useState(() => String(new Date().getFullYear()));
 
   // firma
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // ✅ Evita scroll/lentitud en firma: listeners no-passive
+  // Evita scroll/lentitud en firma (touch no-passive)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const prevent = (e) => e.preventDefault();
-
-    // Evita scroll mientras firmas
     canvas.addEventListener("touchstart", prevent, { passive: false });
     canvas.addEventListener("touchmove", prevent, { passive: false });
 
@@ -370,10 +405,9 @@ const HojaRegistroHoras = () => {
       try {
         localStorage.setItem("registrosHrsKm", JSON.stringify(updated));
       } catch (err) {
-        console.error("No se pudo guardar en localStorage (posible límite):", err);
+        console.error("No se pudo guardar en localStorage:", err);
         alert(
-          "⚠️ El navegador no pudo guardar el reporte (límite por imágenes). " +
-            "Sugerencia: menos fotos o menor calidad."
+          "⚠️ No se pudo guardar (límite de localStorage). Menos fotos o menor calidad."
         );
       }
       return updated;
@@ -398,7 +432,15 @@ const HojaRegistroHoras = () => {
   const generatePdfBlob = (registro) => {
     const doc = createDoc();
     buildPdf(doc, registro);
-    return doc.output("blob"); // ✅ estable en móvil
+    return doc.output("blob");
+  };
+
+  // ✅ NUEVO: Ver PDF (abre el PDF real en pestaña)
+  const verPdfDesdeRegistro = (registro) => {
+    const blob = generatePdfBlob(registro);
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const descargarPdfDesdeRegistro = (registro) => {
@@ -417,7 +459,7 @@ const HojaRegistroHoras = () => {
 
     const pdfBlob = generatePdfBlob(registro);
 
-    // ✅ SHARE NATIVO (celular): manda el PDF completo (multi-hoja + firma)
+    // SHARE NATIVO (celular): manda el PDF completo
     try {
       if (navigator.share && navigator.canShare) {
         const file = new File([pdfBlob], fileName, { type: "application/pdf" });
@@ -445,7 +487,7 @@ const HojaRegistroHoras = () => {
     doc.save(fileName);
   };
 
-  /* ====== FIRMA: DIBUJO ====== */
+  /* ====== FIRMA ====== */
   const getCoords = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
     const t = e.touches?.[0];
@@ -453,7 +495,10 @@ const HojaRegistroHoras = () => {
     const clientY = t ? t.clientY : e.clientY;
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
   };
 
   const startDrawing = (e) => {
@@ -487,18 +532,18 @@ const HojaRegistroHoras = () => {
     canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  /* ====== IMÁGENES (BLINDADO) ====== */
+  /* ====== IMÁGENES ====== */
   const handleImagenChasisChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) {
       setImagenChasisUrl(null);
       return;
     }
-
-    // ✅ compresión para no reventar PDF/WhatsApp
-    const dataUrl = await compressImageFileToDataUrl(file, { maxDim: 1280, quality: 0.75 });
+    const dataUrl = await compressImageFileToDataUrl(file, {
+      maxDim: 1280,
+      quality: 0.75,
+    });
     setImagenChasisUrl(dataUrl);
-
     e.target.value = "";
   };
 
@@ -507,13 +552,16 @@ const HojaRegistroHoras = () => {
     if (!files.length) return;
 
     const compressed = await Promise.all(
-      files.map((f) => compressImageFileToDataUrl(f, { maxDim: 1280, quality: 0.75 }))
+      files.map((f) =>
+        compressImageFileToDataUrl(f, { maxDim: 1280, quality: 0.75 })
+      )
     );
 
     setImagenesUrls((prev) => [...prev, ...compressed]);
     e.target.value = "";
   };
 
+  // 5x5 cm aprox en pantalla
   const imageBoxStyle = {
     width: "190px",
     height: "190px",
@@ -523,7 +571,8 @@ const HojaRegistroHoras = () => {
   };
 
   const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
-  const dataTextAreaClass = "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
+  const dataTextAreaClass =
+    "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
   const handleGeneratePdf = (e) => {
     e.preventDefault();
@@ -539,7 +588,8 @@ const HojaRegistroHoras = () => {
     const fechaStr = `${dia}/${mes}/${anio}`;
 
     let firmaDataUrl = null;
-    if (canvasRef.current) firmaDataUrl = canvasRef.current.toDataURL("image/png");
+    if (canvasRef.current)
+      firmaDataUrl = canvasRef.current.toDataURL("image/png");
 
     const data = {
       numeroEquipo,
@@ -570,10 +620,10 @@ const HojaRegistroHoras = () => {
 
   const soporteLink = buildWhatsAppLink(SUPPORT_PHONE, SUPPORT_DEFAULT_MESSAGE);
 
-  // ✅ FAB: en móvil y en formulario lo subimos para que NO tape botones
+  // FAB: en formulario lo subimos para que NO tape botones
   const fabStyle = useMemo(() => {
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-    const baseBottom = vista === "form" ? 120 : 16; // <<<<< clave por tu captura
+    const baseBottom = vista === "form" ? 120 : 16;
     return {
       right: isMobile ? "12px" : "16px",
       bottom: `calc(${baseBottom}px + env(safe-area-inset-bottom))`,
@@ -656,14 +706,28 @@ const HojaRegistroHoras = () => {
                   <tbody>
                     {registros.map((r, idx) => (
                       <tr key={r.id || idx}>
-                        <td className="border px-2 py-1 text-center">{idx + 1}</td>
-                        <td className="border px-2 py-1 text-center">{r.fechaStr}</td>
+                        <td className="border px-2 py-1 text-center">
+                          {idx + 1}
+                        </td>
+                        <td className="border px-2 py-1 text-center">
+                          {r.fechaStr}
+                        </td>
                         <td className="border px-2 py-1">{r.clienteInspeccion}</td>
-                        <td className="border px-2 py-1 text-center">{r.numeroEquipo}</td>
+                        <td className="border px-2 py-1 text-center">
+                          {r.numeroEquipo}
+                        </td>
                         <td className="border px-2 py-1">{r.ubicacion}</td>
 
                         <td className="border px-2 py-1">
                           <div className="flex gap-2 justify-center flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => verPdfDesdeRegistro(r)}
+                              className="px-2 py-1 border border-slate-600 rounded text-[10px] text-slate-700 hover:bg-slate-50"
+                            >
+                              Ver PDF
+                            </button>
+
                             <button
                               type="button"
                               onClick={() => descargarPdfDesdeRegistro(r)}
@@ -711,7 +775,10 @@ const HojaRegistroHoras = () => {
             </span>
           </div>
 
-          <form onSubmit={handleGeneratePdf} className="w-full max-w-5xl text-[11px] md:text-xs">
+          <form
+            onSubmit={handleGeneratePdf}
+            className="w-full max-w-5xl text-[11px] md:text-xs"
+          >
             <div className="bg-white border-4 border-blue-600 w-full">
               {/* ENCABEZADO */}
               <div className="flex border-b border-black">
@@ -720,7 +787,8 @@ const HojaRegistroHoras = () => {
                 </div>
                 <div className="flex-1 flex items-center justify-center px-2">
                   <h1 className="text-center font-bold uppercase leading-tight">
-                    Hoja de registro de horas y kilometrajes equipos hidrosuccionadores
+                    Hoja de registro de horas y kilometrajes equipos
+                    hidrosuccionadores
                   </h1>
                 </div>
               </div>
@@ -731,9 +799,15 @@ const HojaRegistroHoras = () => {
                   <div className="flex">
                     <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase leading-tight text-[10px] md:text-[11px]">
                       Número de equipo
-                      <span className="block normal-case text-[9px]">(en caso de aplicar):</span>
+                      <span className="block normal-case text-[9px]">
+                        (en caso de aplicar):
+                      </span>
                     </label>
-                    <input className={dataInputClass} name="numeroEquipo" type="text" />
+                    <input
+                      className={dataInputClass}
+                      name="numeroEquipo"
+                      type="text"
+                    />
                   </div>
                 </div>
               </div>
@@ -771,7 +845,11 @@ const HojaRegistroHoras = () => {
                     <label className="w-32 md:w-40 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Ubicación:
                     </label>
-                    <input className={dataInputClass} name="ubicacion" type="text" />
+                    <input
+                      className={dataInputClass}
+                      name="ubicacion"
+                      type="text"
+                    />
                   </div>
                 </div>
 
@@ -780,7 +858,11 @@ const HojaRegistroHoras = () => {
                     <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Cliente:
                     </label>
-                    <input className={dataInputClass} name="clienteInspeccion" type="text" />
+                    <input
+                      className={dataInputClass}
+                      name="clienteInspeccion"
+                      type="text"
+                    />
                   </div>
 
                   <div className="flex">
@@ -799,20 +881,29 @@ const HojaRegistroHoras = () => {
               </div>
 
               {/* CHASIS */}
-              <div className="border-b border-black text-center py-1 font-semibold uppercase">Chasis</div>
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">
+                Chasis
+              </div>
 
               <div className="grid grid-cols-3 border-b border-black">
                 <div className="col-span-2 flex">
                   <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                     Kilómetros:
                   </label>
-                  <textarea className={`${dataTextAreaClass} h-20`} name="kilometros" />
+                  <textarea
+                    className={`${dataTextAreaClass} h-20`}
+                    name="kilometros"
+                  />
                 </div>
 
                 <div className="border-l border-black flex flex-col">
-                  <div className="border-b border-black text-center py-1 font-semibold uppercase">Imagen</div>
+                  <div className="border-b border-black text-center py-1 font-semibold uppercase">
+                    Imagen
+                  </div>
                   <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1 py-1">
-                    <span className="text-[10px]">Adjuntar imagen / foto del chasis</span>
+                    <span className="text-[10px]">
+                      Adjuntar imagen / foto del chasis
+                    </span>
 
                     <div className="flex flex-wrap gap-2">
                       <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
@@ -837,39 +928,58 @@ const HojaRegistroHoras = () => {
                       </label>
                     </div>
 
-                    {imagenChasisUrl && <img src={imagenChasisUrl} alt="Chasis" style={imageBoxStyle} />}
+                    {imagenChasisUrl && (
+                      <img
+                        src={imagenChasisUrl}
+                        alt="Chasis"
+                        style={imageBoxStyle}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="border-b border-black text-center py-1 font-semibold uppercase">Módulo</div>
+              {/* MÓDULO */}
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">
+                Módulo
+              </div>
 
               <div className="flex border-b border-black">
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                   Horas:<span className="normal-case"> (generales)</span>
                 </label>
-                <textarea className={`${dataTextAreaClass} h-16`} name="horasGenerales" />
+                <textarea
+                  className={`${dataTextAreaClass} h-16`}
+                  name="horasGenerales"
+                />
               </div>
 
               <div className="flex border-b border-black">
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                   Horas:<span className="normal-case"> (específicas)</span>
                 </label>
-                <textarea className={`${dataTextAreaClass} h-16`} name="horasEspecificas" />
+                <textarea
+                  className={`${dataTextAreaClass} h-16`}
+                  name="horasEspecificas"
+                />
               </div>
 
               <div className="flex border-b border-black">
                 <div className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                   Detalles:
                   <div className="normal-case text-[9px] mt-1 leading-tight">
-                    (Espacio para ingresar novedades referentes al equipo, su operación o funcionamiento)
+                    (Espacio para ingresar novedades referentes al equipo, su
+                    operación o funcionamiento)
                   </div>
                 </div>
                 <textarea className={`${dataTextAreaClass} h-20`} name="detalles" />
               </div>
 
+              {/* IMÁGENES */}
               <div className="flex border-b border-black">
-                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">Imágenes:</label>
+                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                  Imágenes:
+                </label>
                 <div className="flex-1 flex flex-col px-2 py-1 gap-2">
                   <div className="flex flex-wrap gap-2">
                     <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
@@ -897,7 +1007,12 @@ const HojaRegistroHoras = () => {
                   {imagenesUrls.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {imagenesUrls.map((url, idx) => (
-                        <img key={idx} src={url} alt={`Imagen ${idx + 1}`} style={imageBoxStyle} />
+                        <img
+                          key={idx}
+                          src={url}
+                          alt={`Imagen ${idx + 1}`}
+                          style={imageBoxStyle}
+                        />
                       ))}
                     </div>
                   )}
