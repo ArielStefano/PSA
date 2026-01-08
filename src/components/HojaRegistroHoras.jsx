@@ -674,7 +674,7 @@ const HojaRegistroHoras = () => {
         <div className="w-full max-w-5xl bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
           <div className="flex justify-between items-center mb-3">
             <h1 className="font-bold text-sm md:text-base">
-              Registros de Novedad, Horas y Kilometrajes
+              Registro de Novedades, Horas y Kilometrajes
             </h1>
             <button
               type="button"
