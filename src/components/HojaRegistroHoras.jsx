@@ -13,6 +13,7 @@ const SUPPORT_DEFAULT_MESSAGE =
 /** ======================
  *  LOGO PDF (opcional)
  *  ====================== */
+// Si quieres usar logo, puedes poner aquí un dataURL base64 (PNG/JPEG).
 const ASTAP_LOGO_BASE64 = null;
 
 /* ====================== PDF HELPERS ====================== */
@@ -42,7 +43,7 @@ const addFittedImage = (doc, dataUrl, x, y, boxW, boxH) => {
   const offsetX = x + (boxW - w) / 2;
   const offsetY = y + (boxH - h) / 2;
 
-  // ✅ compresión FAST (menos peso, más estable en móvil)
+  // FAST = más liviano y estable en móvil
   doc.addImage(dataUrl, format, offsetX, offsetY, w, h, undefined, "FAST");
 };
 
@@ -156,7 +157,6 @@ const buildPdf = (doc, data) => {
   doc.setFont("helvetica", "bold");
   doc.text("Imagen chasis:", imgX, y + 5);
   doc.rect(imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
-
   if (imagenChasisUrl) {
     addFittedImage(
       doc,
@@ -196,7 +196,7 @@ const buildPdf = (doc, data) => {
 
   y += horasBoxHeight + 10;
 
-  // DETALLES
+  // DETALLES (texto + 1 foto)
   drawSectionHeader(doc, "DETALLES", y, pageWidth, margin);
   y += 9;
 
@@ -205,14 +205,12 @@ const buildPdf = (doc, data) => {
   const detallesTextWidth = totalDetallesWidth * 0.6;
   const detallesImgWidth = totalDetallesWidth - detallesTextWidth - 4;
 
-  // texto izquierda
   doc.rect(margin, y, detallesTextWidth, detallesBoxHeight);
   doc.setFont("helvetica", "normal");
   doc.text((detalles || "").toString(), margin + 2, y + 5, {
     maxWidth: detallesTextWidth - 4,
   });
 
-  // imagen derecha
   const detallesImgX = margin + detallesTextWidth + 4;
   doc.rect(detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   if (imagenPrincipalDetalles) {
@@ -322,8 +320,7 @@ const compressImageFileToDataUrl = (
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, nw, nh);
 
-        // JPEG reduce tamaño (ideal WhatsApp)
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        const dataUrl = canvas.toDataURL("image/jpeg", quality); // reduce tamaño
         URL.revokeObjectURL(url);
         resolve(dataUrl);
       };
@@ -362,6 +359,10 @@ const HojaRegistroHoras = () => {
   // WhatsApp FAB colapsable
   const [waOpen, setWaOpen] = useState(false);
 
+  // ✅ Preview PDF dentro de la app
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+  const [pdfPreviewName, setPdfPreviewName] = useState("reporte.pdf");
+
   // fecha actual
   const [dia, setDia] = useState(() =>
     String(new Date().getDate()).padStart(2, "0")
@@ -390,6 +391,7 @@ const HojaRegistroHoras = () => {
     };
   }, [vista]);
 
+  // Cargar registros
   useEffect(() => {
     try {
       const stored = localStorage.getItem("registrosHrsKm");
@@ -398,6 +400,13 @@ const HojaRegistroHoras = () => {
       console.error("Error leyendo registros:", err);
     }
   }, []);
+
+  // Liberar blob url si se cierra la página
+  useEffect(() => {
+    return () => {
+      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    };
+  }, [pdfPreviewUrl]);
 
   const guardarRegistroLocal = (registro) => {
     setRegistros((prev) => {
@@ -435,12 +444,24 @@ const HojaRegistroHoras = () => {
     return doc.output("blob");
   };
 
-  // ✅ NUEVO: Ver PDF (abre el PDF real en pestaña)
+  // ✅ Ver PDF dentro de la app (modal)
   const verPdfDesdeRegistro = (registro) => {
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+
     const blob = generatePdfBlob(registro);
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+    const fileName = registro.numeroEquipo?.trim()
+      ? `hoja-registro-${registro.numeroEquipo}.pdf`
+      : "hoja-registro.pdf";
+
+    setPdfPreviewName(fileName);
+    setPdfPreviewUrl(url);
+  };
+
+  const cerrarPreviewPdf = () => {
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    setPdfPreviewUrl(null);
   };
 
   const descargarPdfDesdeRegistro = (registro) => {
@@ -674,7 +695,7 @@ const HojaRegistroHoras = () => {
         <div className="w-full max-w-5xl bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
           <div className="flex justify-between items-center mb-3">
             <h1 className="font-bold text-sm md:text-base">
-              Registro de Novedades, Horas y Kilometrajes
+              Registros de horas y kilometrajes
             </h1>
             <button
               type="button"
@@ -972,7 +993,10 @@ const HojaRegistroHoras = () => {
                     operación o funcionamiento)
                   </div>
                 </div>
-                <textarea className={`${dataTextAreaClass} h-20`} name="detalles" />
+                <textarea
+                  className={`${dataTextAreaClass} h-20`}
+                  name="detalles"
+                />
               </div>
 
               {/* IMÁGENES */}
@@ -1069,6 +1093,32 @@ const HojaRegistroHoras = () => {
             </div>
           </form>
         </>
+      )}
+
+      {/* ✅ MODAL VISOR PDF (dentro de la app) */}
+      {pdfPreviewUrl && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-3">
+          <div className="w-full max-w-5xl h-[85vh] bg-white rounded-lg shadow-xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-3 py-2 border-b bg-slate-50">
+              <div className="text-sm font-semibold truncate">
+                Vista previa: {pdfPreviewName}
+              </div>
+              <button
+                type="button"
+                onClick={cerrarPreviewPdf}
+                className="px-3 py-1 rounded border text-sm hover:bg-slate-100"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <iframe
+              title="Vista previa PDF"
+              src={pdfPreviewUrl}
+              className="flex-1 w-full"
+            />
+          </div>
+        </div>
       )}
     </div>
   );
