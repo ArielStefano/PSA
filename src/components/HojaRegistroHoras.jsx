@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 
-// ✅ Visor PDF interno (funciona en Android/iPhone/PC)
+// ✅ Visor PDF interno
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
@@ -16,14 +16,13 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 /** ======================
  *  CONFIG WHATSAPP
  *  ====================== */
-const SUPPORT_PHONE = "593958897066"; // sin "+", sin espacios
+const SUPPORT_PHONE = "593958897066"; // sin "+"
 const SUPPORT_DEFAULT_MESSAGE =
   "Hola, necesito soporte con un reporte generado en CONTROL HORAS Y KM (ASTAP).";
 
 /** ======================
  *  LOGO PDF (opcional)
  *  ====================== */
-// Si quieres usar logo, reemplaza con dataURL base64.
 const ASTAP_LOGO_BASE64 = null;
 
 /* ====================== PDF HELPERS ====================== */
@@ -33,10 +32,7 @@ const createDoc = () =>
 
 const detectImageFormat = (dataUrl) => {
   if (!dataUrl || typeof dataUrl !== "string") return "PNG";
-  if (
-    dataUrl.startsWith("data:image/jpeg") ||
-    dataUrl.startsWith("data:image/jpg")
-  )
+  if (dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg"))
     return "JPEG";
   if (dataUrl.startsWith("data:image/png")) return "PNG";
   return "PNG";
@@ -116,11 +112,8 @@ const buildPdf = (doc, data) => {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
 
-  // 1ª foto a DETALLES, resto a FOTOS
-  const imagenPrincipalDetalles =
-    imagenesUrls.length > 0 ? imagenesUrls[0] : null;
-  const imagenesRestantes =
-    imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
+  const imagenPrincipalDetalles = imagenesUrls.length > 0 ? imagenesUrls[0] : null;
+  const imagenesRestantes = imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
 
   drawTopHeader(doc, pageWidth, margin);
   let y = 22;
@@ -167,14 +160,7 @@ const buildPdf = (doc, data) => {
   doc.text("Imagen chasis:", imgX, y + 5);
   doc.rect(imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
   if (imagenChasisUrl) {
-    addFittedImage(
-      doc,
-      imagenChasisUrl,
-      imgX,
-      y + 7,
-      chasisImgWidth,
-      chasisBoxHeight - 7
-    );
+    addFittedImage(doc, imagenChasisUrl, imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
   }
 
   y += chasisBoxHeight + 10;
@@ -205,7 +191,7 @@ const buildPdf = (doc, data) => {
 
   y += horasBoxHeight + 10;
 
-  // DETALLES (texto + 1 foto)
+  // DETALLES
   drawSectionHeader(doc, "DETALLES", y, pageWidth, margin);
   y += 9;
 
@@ -223,19 +209,12 @@ const buildPdf = (doc, data) => {
   const detallesImgX = margin + detallesTextWidth + 4;
   doc.rect(detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   if (imagenPrincipalDetalles) {
-    addFittedImage(
-      doc,
-      imagenPrincipalDetalles,
-      detallesImgX,
-      y,
-      detallesImgWidth,
-      detallesBoxHeight
-    );
+    addFittedImage(doc, imagenPrincipalDetalles, detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   }
 
   y += detallesBoxHeight + 10;
 
-  // FOTOS DEL EQUIPO (multipágina)
+  // FOTOS DEL EQUIPO
   if (imagenesRestantes.length > 0) {
     drawSectionHeader(doc, "FOTOS DEL EQUIPO", y, pageWidth, margin);
     y += 9;
@@ -252,13 +231,7 @@ const buildPdf = (doc, data) => {
         doc.addPage();
         drawTopHeader(doc, pageWidth, margin);
         let y2 = 22;
-        drawSectionHeader(
-          doc,
-          "FOTOS DEL EQUIPO (CONTINUACIÓN)",
-          y2,
-          pageWidth,
-          margin
-        );
+        drawSectionHeader(doc, "FOTOS DEL EQUIPO (CONTINUACIÓN)", y2, pageWidth, margin);
         y2 += 9;
         fotoX = margin;
         fotoY = y2;
@@ -308,10 +281,7 @@ const buildPdf = (doc, data) => {
 
 /* ====================== IMAGE COMPRESSION ====================== */
 
-const compressImageFileToDataUrl = (
-  file,
-  { maxDim = 1280, quality = 0.75 } = {}
-) =>
+const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}) =>
   new Promise((resolve) => {
     try {
       const url = URL.createObjectURL(file);
@@ -340,7 +310,7 @@ const compressImageFileToDataUrl = (
         fr.readAsDataURL(file);
       };
       img.src = url;
-    } catch (e) {
+    } catch {
       const fr = new FileReader();
       fr.onload = () => resolve(fr.result);
       fr.readAsDataURL(file);
@@ -368,18 +338,14 @@ const HojaRegistroHoras = () => {
   // WhatsApp FAB colapsable
   const [waOpen, setWaOpen] = useState(false);
 
-  // ✅ Preview PDF interno (react-pdf)
-  const [pdfBlob, setPdfBlob] = useState(null);
+  // ✅ Preview PDF interno (bytes)
+  const [pdfBytes, setPdfBytes] = useState(null);
   const [pdfPreviewName, setPdfPreviewName] = useState("reporte.pdf");
   const [numPages, setNumPages] = useState(0);
 
-  // fecha actual
-  const [dia, setDia] = useState(() =>
-    String(new Date().getDate()).padStart(2, "0")
-  );
-  const [mes, setMes] = useState(() =>
-    String(new Date().getMonth() + 1).padStart(2, "0")
-  );
+  // fecha
+  const [dia, setDia] = useState(() => String(new Date().getDate()).padStart(2, "0"));
+  const [mes, setMes] = useState(() => String(new Date().getMonth() + 1).padStart(2, "0"));
   const [anio, setAnio] = useState(() => String(new Date().getFullYear()));
 
   // firma
@@ -387,7 +353,6 @@ const HojaRegistroHoras = () => {
   const [isDrawing, setIsDrawing] = useState(false);
 
   useEffect(() => {
-    // carga localStorage
     try {
       const stored = localStorage.getItem("registrosHrsKm");
       if (stored) setRegistros(JSON.parse(stored));
@@ -396,7 +361,7 @@ const HojaRegistroHoras = () => {
     }
   }, []);
 
-  // Evita scroll/lag firmando (touch non-passive)
+  // Bloquear scroll mientras firma en touch
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -418,16 +383,14 @@ const HojaRegistroHoras = () => {
         localStorage.setItem("registrosHrsKm", JSON.stringify(updated));
       } catch (err) {
         console.error("No se pudo guardar en localStorage:", err);
-        alert(
-          "⚠️ No se pudo guardar (límite de almacenamiento). Usa menos fotos o baja calidad."
-        );
+        alert("⚠️ No se pudo guardar (límite de almacenamiento). Usa menos fotos o menor calidad.");
       }
       return updated;
     });
   };
 
   const buildReportMessage = (r) => {
-    const lines = [
+    return [
       "📄 *REPORTE ASTAP – CONTROL HORAS Y KM*",
       "",
       `📅 *Fecha:* ${r.fechaStr || "-"}`,
@@ -437,31 +400,30 @@ const HojaRegistroHoras = () => {
       "",
       "Adjunto el PDF del reporte.",
       "Por favor confirmar recepción.",
-    ];
-    return lines.join("\n");
+    ].join("\n");
   };
 
-  const generatePdfBlob = (registro) => {
+  // ✅ Genera bytes del PDF (lo más compatible con react-pdf)
+  const generatePdfBytes = (registro) => {
     const doc = createDoc();
     buildPdf(doc, registro);
-    return doc.output("blob");
+    const ab = doc.output("arraybuffer");
+    return new Uint8Array(ab);
   };
 
-  // ✅ Ver PDF en modal (scroll vertical por páginas)
   const verPdfDesdeRegistro = (registro) => {
-    const blob = generatePdfBlob(registro);
-
+    const bytes = generatePdfBytes(registro);
     const fileName = registro.numeroEquipo?.trim()
       ? `hoja-registro-${registro.numeroEquipo}.pdf`
       : "hoja-registro.pdf";
 
     setPdfPreviewName(fileName);
     setNumPages(0);
-    setPdfBlob(blob);
+    setPdfBytes(bytes);
   };
 
   const cerrarPreviewPdf = () => {
-    setPdfBlob(null);
+    setPdfBytes(null);
     setNumPages(0);
   };
 
@@ -479,14 +441,14 @@ const HojaRegistroHoras = () => {
       ? `hoja-registro-${registro.numeroEquipo}.pdf`
       : "hoja-registro.pdf";
 
-    const pdfBlobLocal = generatePdfBlob(registro);
+    // Genera blob para compartir
+    const doc = createDoc();
+    buildPdf(doc, registro);
+    const blob = doc.output("blob");
 
-    // SHARE NATIVO (celular): manda el PDF completo
     try {
       if (navigator.share && navigator.canShare) {
-        const file = new File([pdfBlobLocal], fileName, {
-          type: "application/pdf",
-        });
+        const file = new File([blob], fileName, { type: "application/pdf" });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
@@ -497,17 +459,13 @@ const HojaRegistroHoras = () => {
         }
       }
     } catch (e) {
-      console.warn("Share falló, usando fallback:", e);
+      console.warn("Share falló:", e);
     }
 
-    // Fallback: abre WhatsApp con mensaje y descarga para adjuntar
+    // Fallback
     const msg =
-      buildReportMessage(registro) +
-      "\n\n⚠️ *Nota:* Adjunta el PDF descargado a este chat.";
+      buildReportMessage(registro) + "\n\n⚠️ *Nota:* Adjunta el PDF descargado a este chat.";
     window.open(buildWhatsAppLink(SUPPORT_PHONE, msg), "_blank");
-
-    const doc = createDoc();
-    buildPdf(doc, registro);
     doc.save(fileName);
   };
 
@@ -519,10 +477,7 @@ const HojaRegistroHoras = () => {
     const clientY = t ? t.clientY : e.clientY;
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
-    };
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
   };
 
   const startDrawing = (e) => {
@@ -563,10 +518,7 @@ const HojaRegistroHoras = () => {
       setImagenChasisUrl(null);
       return;
     }
-    const dataUrl = await compressImageFileToDataUrl(file, {
-      maxDim: 1280,
-      quality: 0.75,
-    });
+    const dataUrl = await compressImageFileToDataUrl(file, { maxDim: 1280, quality: 0.75 });
     setImagenChasisUrl(dataUrl);
     e.target.value = "";
   };
@@ -576,11 +528,8 @@ const HojaRegistroHoras = () => {
     if (!files.length) return;
 
     const compressed = await Promise.all(
-      files.map((f) =>
-        compressImageFileToDataUrl(f, { maxDim: 1280, quality: 0.75 })
-      )
+      files.map((f) => compressImageFileToDataUrl(f, { maxDim: 1280, quality: 0.75 }))
     );
-
     setImagenesUrls((prev) => [...prev, ...compressed]);
     e.target.value = "";
   };
@@ -594,10 +543,13 @@ const HojaRegistroHoras = () => {
   };
 
   const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
-  const dataTextAreaClass =
-    "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
+  const dataTextAreaClass = "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
-  const handleGeneratePdf = (e) => {
+  /** ✅ CAMBIO 1:
+   *  Aquí YA NO descargamos el PDF automáticamente.
+   *  Solo guardamos el registro y volvemos al listado.
+   */
+  const handleGuardarRegistro = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
 
@@ -611,8 +563,7 @@ const HojaRegistroHoras = () => {
     const fechaStr = `${dia}/${mes}/${anio}`;
 
     let firmaDataUrl = null;
-    if (canvasRef.current)
-      firmaDataUrl = canvasRef.current.toDataURL("image/png");
+    if (canvasRef.current) firmaDataUrl = canvasRef.current.toDataURL("image/png");
 
     const data = {
       numeroEquipo,
@@ -629,28 +580,16 @@ const HojaRegistroHoras = () => {
       firmaDataUrl,
     };
 
-    const doc = createDoc();
-    buildPdf(doc, data);
-
-    const nombreArchivo = numeroEquipo?.trim()
-      ? `hoja-registro-${numeroEquipo}.pdf`
-      : "hoja-registro.pdf";
-    doc.save(nombreArchivo);
-
     guardarRegistroLocal({ id: Date.now(), ...data });
     setVista("list");
   };
 
   const soporteLink = buildWhatsAppLink(SUPPORT_PHONE, SUPPORT_DEFAULT_MESSAGE);
 
-  // FAB: en formulario lo subimos para que NO tape botones
+  // FAB: subirlo en formulario para que NO tape botones
   const fabStyle = useMemo(() => {
-    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     const baseBottom = vista === "form" ? 120 : 16;
-    return {
-      right: isMobile ? "12px" : "16px",
-      bottom: `calc(${baseBottom}px + env(safe-area-inset-bottom))`,
-    };
+    return { right: "16px", bottom: `calc(${baseBottom}px + env(safe-area-inset-bottom))` };
   }, [vista]);
 
   return (
@@ -696,9 +635,7 @@ const HojaRegistroHoras = () => {
       {vista === "list" && (
         <div className="w-full max-w-5xl bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
           <div className="flex justify-between items-center mb-3">
-            <h1 className="font-bold text-sm md:text-base">
-              Registros de horas y kilometrajes
-            </h1>
+            <h1 className="font-bold text-sm md:text-base">Registros de horas y kilometrajes</h1>
             <button
               type="button"
               onClick={() => setVista("form")}
@@ -709,9 +646,7 @@ const HojaRegistroHoras = () => {
           </div>
 
           {registros.length === 0 ? (
-            <p className="text-[11px] text-slate-500">
-              No hay registros guardados en este navegador.
-            </p>
+            <p className="text-[11px] text-slate-500">No hay registros guardados en este navegador.</p>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -729,16 +664,10 @@ const HojaRegistroHoras = () => {
                   <tbody>
                     {registros.map((r, idx) => (
                       <tr key={r.id || idx}>
-                        <td className="border px-2 py-1 text-center">
-                          {idx + 1}
-                        </td>
-                        <td className="border px-2 py-1 text-center">
-                          {r.fechaStr}
-                        </td>
+                        <td className="border px-2 py-1 text-center">{idx + 1}</td>
+                        <td className="border px-2 py-1 text-center">{r.fechaStr}</td>
                         <td className="border px-2 py-1">{r.clienteInspeccion}</td>
-                        <td className="border px-2 py-1 text-center">
-                          {r.numeroEquipo}
-                        </td>
+                        <td className="border px-2 py-1 text-center">{r.numeroEquipo}</td>
                         <td className="border px-2 py-1">{r.ubicacion}</td>
                         <td className="border px-2 py-1">
                           <div className="flex gap-2 justify-center flex-wrap">
@@ -792,15 +721,11 @@ const HojaRegistroHoras = () => {
             >
               ← Volver al listado
             </button>
-            <span className="text-[11px] md:text-xs text-slate-600">
-              Llenando nuevo reporte
-            </span>
+            <span className="text-[11px] md:text-xs text-slate-600">Llenando nuevo reporte</span>
           </div>
 
-          <form
-            onSubmit={handleGeneratePdf}
-            className="w-full max-w-5xl text-[11px] md:text-xs"
-          >
+          {/* ✅ CAMBIO: botón ahora es "Guardar reporte" (no descarga) */}
+          <form onSubmit={handleGuardarRegistro} className="w-full max-w-5xl text-[11px] md:text-xs">
             <div className="bg-white border-4 border-blue-600 w-full">
               {/* ENCABEZADO */}
               <div className="flex border-b border-black">
@@ -809,8 +734,7 @@ const HojaRegistroHoras = () => {
                 </div>
                 <div className="flex-1 flex items-center justify-center px-2">
                   <h1 className="text-center font-bold uppercase leading-tight">
-                    Hoja de registro de horas y kilometrajes equipos
-                    hidrosuccionadores
+                    Hoja de registro de horas y kilometrajes equipos hidrosuccionadores
                   </h1>
                 </div>
               </div>
@@ -821,15 +745,9 @@ const HojaRegistroHoras = () => {
                   <div className="flex">
                     <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase leading-tight text-[10px] md:text-[11px]">
                       Número de equipo
-                      <span className="block normal-case text-[9px]">
-                        (en caso de aplicar):
-                      </span>
+                      <span className="block normal-case text-[9px]">(en caso de aplicar):</span>
                     </label>
-                    <input
-                      className={dataInputClass}
-                      name="numeroEquipo"
-                      type="text"
-                    />
+                    <input className={dataInputClass} name="numeroEquipo" type="text" />
                   </div>
                 </div>
               </div>
@@ -867,11 +785,7 @@ const HojaRegistroHoras = () => {
                     <label className="w-32 md:w-40 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Ubicación:
                     </label>
-                    <input
-                      className={dataInputClass}
-                      name="ubicacion"
-                      type="text"
-                    />
+                    <input className={dataInputClass} name="ubicacion" type="text" />
                   </div>
                 </div>
 
@@ -880,11 +794,7 @@ const HojaRegistroHoras = () => {
                     <label className="w-32 border-r border-black px-2 py-1 font-semibold uppercase text-[10px] md:text-[11px]">
                       Cliente:
                     </label>
-                    <input
-                      className={dataInputClass}
-                      name="clienteInspeccion"
-                      type="text"
-                    />
+                    <input className={dataInputClass} name="clienteInspeccion" type="text" />
                   </div>
 
                   <div className="flex">
@@ -903,30 +813,20 @@ const HojaRegistroHoras = () => {
               </div>
 
               {/* CHASIS */}
-              <div className="border-b border-black text-center py-1 font-semibold uppercase">
-                Chasis
-              </div>
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">Chasis</div>
 
               <div className="grid grid-cols-3 border-b border-black">
                 <div className="col-span-2 flex">
                   <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                     Kilómetros:
                   </label>
-                  <textarea
-                    className={`${dataTextAreaClass} h-20`}
-                    name="kilometros"
-                  />
+                  <textarea className={`${dataTextAreaClass} h-20`} name="kilometros" />
                 </div>
 
                 <div className="border-l border-black flex flex-col">
-                  <div className="border-b border-black text-center py-1 font-semibold uppercase">
-                    Imagen
-                  </div>
+                  <div className="border-b border-black text-center py-1 font-semibold uppercase">Imagen</div>
                   <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1 py-1">
-                    <span className="text-[10px]">
-                      Adjuntar imagen / foto del chasis
-                    </span>
-
+                    <span className="text-[10px]">Adjuntar imagen / foto del chasis</span>
                     <div className="flex flex-wrap gap-2">
                       <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
                         Tomar foto
@@ -938,7 +838,6 @@ const HojaRegistroHoras = () => {
                           onChange={handleImagenChasisChange}
                         />
                       </label>
-
                       <label className="px-2 py-1 border border-slate-500 rounded text-[10px] text-slate-700 hover:bg-slate-100 cursor-pointer">
                         Cargar desde galería
                         <input
@@ -949,62 +848,40 @@ const HojaRegistroHoras = () => {
                         />
                       </label>
                     </div>
-
-                    {imagenChasisUrl && (
-                      <img
-                        src={imagenChasisUrl}
-                        alt="Chasis"
-                        style={imageBoxStyle}
-                      />
-                    )}
+                    {imagenChasisUrl && <img src={imagenChasisUrl} alt="Chasis" style={imageBoxStyle} />}
                   </div>
                 </div>
               </div>
 
-              {/* MÓDULO */}
-              <div className="border-b border-black text-center py-1 font-semibold uppercase">
-                Módulo
-              </div>
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">Módulo</div>
 
               <div className="flex border-b border-black">
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                   Horas:<span className="normal-case"> (generales)</span>
                 </label>
-                <textarea
-                  className={`${dataTextAreaClass} h-16`}
-                  name="horasGenerales"
-                />
+                <textarea className={`${dataTextAreaClass} h-16`} name="horasGenerales" />
               </div>
 
               <div className="flex border-b border-black">
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                   Horas:<span className="normal-case"> (específicas)</span>
                 </label>
-                <textarea
-                  className={`${dataTextAreaClass} h-16`}
-                  name="horasEspecificas"
-                />
+                <textarea className={`${dataTextAreaClass} h-16`} name="horasEspecificas" />
               </div>
 
               <div className="flex border-b border-black">
                 <div className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
                   Detalles:
                   <div className="normal-case text-[9px] mt-1 leading-tight">
-                    (Espacio para ingresar novedades referentes al equipo, su
-                    operación o funcionamiento)
+                    (Espacio para ingresar novedades referentes al equipo, su operación o funcionamiento)
                   </div>
                 </div>
-                <textarea
-                  className={`${dataTextAreaClass} h-20`}
-                  name="detalles"
-                />
+                <textarea className={`${dataTextAreaClass} h-20`} name="detalles" />
               </div>
 
               {/* IMÁGENES */}
               <div className="flex border-b border-black">
-                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
-                  Imágenes:
-                </label>
+                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">Imágenes:</label>
                 <div className="flex-1 flex flex-col px-2 py-1 gap-2">
                   <div className="flex flex-wrap gap-2">
                     <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
@@ -1032,12 +909,7 @@ const HojaRegistroHoras = () => {
                   {imagenesUrls.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {imagenesUrls.map((url, idx) => (
-                        <img
-                          key={idx}
-                          src={url}
-                          alt={`Imagen ${idx + 1}`}
-                          style={imageBoxStyle}
-                        />
+                        <img key={idx} src={url} alt={`Imagen ${idx + 1}`} style={imageBoxStyle} />
                       ))}
                     </div>
                   )}
@@ -1085,11 +957,13 @@ const HojaRegistroHoras = () => {
               >
                 Cancelar
               </button>
+
+              {/* ✅ Ya NO descarga, SOLO guarda */}
               <button
                 type="submit"
                 className="px-4 py-2 text-xs md:text-sm border border-blue-600 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
               >
-                Generar PDF
+                Guardar reporte
               </button>
             </div>
           </form>
@@ -1097,13 +971,11 @@ const HojaRegistroHoras = () => {
       )}
 
       {/* ✅ MODAL VISOR PDF (SCROLL VERTICAL) */}
-      {pdfBlob && (
+      {pdfBytes && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-3">
           <div className="w-full max-w-5xl h-[88vh] bg-white rounded-lg shadow-xl overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-3 py-2 border-b bg-slate-50">
-              <div className="text-sm font-semibold truncate">
-                Vista previa: {pdfPreviewName}
-              </div>
+              <div className="text-sm font-semibold truncate">Vista previa: {pdfPreviewName}</div>
               <button
                 type="button"
                 onClick={cerrarPreviewPdf}
@@ -1115,22 +987,15 @@ const HojaRegistroHoras = () => {
 
             <div className="flex-1 overflow-auto p-2 bg-slate-100">
               <Document
-                file={pdfBlob}
+                file={{ data: pdfBytes }}
                 onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                onLoadError={(err) => console.error("PDF load error:", err)}
                 loading={<div className="p-4 text-center">Cargando PDF...</div>}
-                error={
-                  <div className="p-4 text-center text-red-600">
-                    No se pudo abrir el PDF.
-                  </div>
-                }
+                error={<div className="p-4 text-center text-red-600">No se pudo abrir el PDF.</div>}
               >
                 {Array.from({ length: numPages || 0 }).map((_, i) => (
                   <div key={i} className="mb-3 flex justify-center">
-                    {/* ✅ width responsive: se ajusta a pantalla */}
-                    <Page
-                      pageNumber={i + 1}
-                      width={Math.min(980, window.innerWidth - 32)}
-                    />
+                    <Page pageNumber={i + 1} width={Math.min(980, window.innerWidth - 32)} />
                   </div>
                 ))}
               </Document>
