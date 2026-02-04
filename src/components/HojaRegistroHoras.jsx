@@ -18,7 +18,6 @@ const ASTAP_LOGO_BASE64 = null;
 const createDoc = () =>
   new jsPDF({ orientation: "l", unit: "mm", format: "a4", compress: true });
 
-// Detecta el formato real desde el dataURL
 const detectImageFormat = (dataUrl) => {
   if (!dataUrl || typeof dataUrl !== "string") return "PNG";
   if (
@@ -102,15 +101,12 @@ const buildPdf = (doc, data) => {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
 
-  const imagenPrincipalDetalles =
-    imagenesUrls.length > 0 ? imagenesUrls[0] : null;
-  const imagenesRestantes =
-    imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
+  const imagenPrincipalDetalles = imagenesUrls.length > 0 ? imagenesUrls[0] : null;
+  const imagenesRestantes = imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
 
   drawTopHeader(doc, pageWidth, margin);
   let y = 22;
 
-  // DATOS GENERALES
   drawSectionHeader(doc, "DATOS GENERALES", y, pageWidth, margin);
   y += 9;
 
@@ -130,7 +126,6 @@ const buildPdf = (doc, data) => {
 
   y = Math.max(leftY, rightY) + 8;
 
-  // CHASIS
   drawSectionHeader(doc, "CHASIS", y, pageWidth, margin);
   y += 9;
 
@@ -152,19 +147,11 @@ const buildPdf = (doc, data) => {
   doc.text("Imagen chasis:", imgX, y + 5);
   doc.rect(imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
   if (imagenChasisUrl) {
-    addFittedImage(
-      doc,
-      imagenChasisUrl,
-      imgX,
-      y + 7,
-      chasisImgWidth,
-      chasisBoxHeight - 7
-    );
+    addFittedImage(doc, imagenChasisUrl, imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
   }
 
   y += chasisBoxHeight + 10;
 
-  // HORAS
   drawSectionHeader(doc, "HORAS", y, pageWidth, margin);
   y += 9;
 
@@ -190,7 +177,6 @@ const buildPdf = (doc, data) => {
 
   y += horasBoxHeight + 10;
 
-  // DETALLES + FOTO
   drawSectionHeader(doc, "DETALLES", y, pageWidth, margin);
   y += 9;
 
@@ -208,19 +194,11 @@ const buildPdf = (doc, data) => {
   const detallesImgX = margin + detallesTextWidth + 4;
   doc.rect(detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   if (imagenPrincipalDetalles) {
-    addFittedImage(
-      doc,
-      imagenPrincipalDetalles,
-      detallesImgX,
-      y,
-      detallesImgWidth,
-      detallesBoxHeight
-    );
+    addFittedImage(doc, imagenPrincipalDetalles, detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   }
 
   y += detallesBoxHeight + 10;
 
-  // FOTOS DEL EQUIPO (multi página)
   if (imagenesRestantes.length > 0) {
     drawSectionHeader(doc, "FOTOS DEL EQUIPO", y, pageWidth, margin);
     y += 9;
@@ -237,13 +215,7 @@ const buildPdf = (doc, data) => {
         doc.addPage();
         drawTopHeader(doc, pageWidth, margin);
         let y2 = 22;
-        drawSectionHeader(
-          doc,
-          "FOTOS DEL EQUIPO (CONTINUACIÓN)",
-          y2,
-          pageWidth,
-          margin
-        );
+        drawSectionHeader(doc, "FOTOS DEL EQUIPO (CONTINUACIÓN)", y2, pageWidth, margin);
         y2 += 9;
         fotoX = margin;
         fotoY = y2;
@@ -265,7 +237,6 @@ const buildPdf = (doc, data) => {
     y = lastRowBottom + 10;
   }
 
-  // FIRMAS
   const firmaBoxH = 25;
   const firmasEstimated = 9 + 7 + firmaBoxH + 15;
   if (y + firmasEstimated > pageHeight - margin) {
@@ -281,13 +252,13 @@ const buildPdf = (doc, data) => {
   doc.setFont("helvetica", "bold");
   doc.text("Responsable equipo:", margin + 2, y + 5);
   doc.rect(margin, y + 7, firmaBoxW, firmaBoxH);
+
   if (firmaDataUrl) addFittedImage(doc, firmaDataUrl, margin, y + 7, firmaBoxW, firmaBoxH);
   doc.setFont("helvetica", "normal");
   doc.text(responsableEquipo || "", margin, y + 7 + firmaBoxH + 5);
 };
 
 /* ====================== IMAGE COMPRESSION ====================== */
-
 const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}) =>
   new Promise((resolve) => {
     const url = URL.createObjectURL(file);
@@ -319,12 +290,25 @@ const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}
   });
 
 /* ====================== WHATSAPP ====================== */
-
 const buildWhatsAppLink = (phone, message) => {
   const text = encodeURIComponent(message || "");
   const cleanPhone = (phone || "").replace(/\D/g, "");
   if (cleanPhone) return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${text}`;
   return `https://api.whatsapp.com/send?text=${text}`;
+};
+
+/* ====================== DEVICE DETECTION ====================== */
+const detectMobileDevice = () => {
+  // 1) UA-CH (Chrome moderno)
+  const uaData = navigator.userAgentData;
+  if (uaData && typeof uaData.mobile === "boolean") return uaData.mobile;
+
+  // 2) Touch points (mucho más estable que el ancho)
+  if (typeof navigator.maxTouchPoints === "number" && navigator.maxTouchPoints > 1) return true;
+
+  // 3) Fallback por userAgent
+  const ua = navigator.userAgent || "";
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
 };
 
 const HojaRegistroHoras = () => {
@@ -346,6 +330,12 @@ const HojaRegistroHoras = () => {
 
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // ✅ Aquí detectamos “móvil” por capacidades, no por ancho
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  useEffect(() => {
+    setIsMobileDevice(detectMobileDevice());
+  }, []);
 
   useEffect(() => {
     try {
@@ -374,8 +364,8 @@ const HojaRegistroHoras = () => {
     });
   };
 
-  const buildReportMessage = (r) => {
-    return [
+  const buildReportMessage = (r) =>
+    [
       "📄 *REPORTE ASTAP – CONTROL HORAS Y KM*",
       "",
       `📅 *Fecha:* ${r.fechaStr || "-"}`,
@@ -386,7 +376,6 @@ const HojaRegistroHoras = () => {
       "Adjunto el PDF del reporte.",
       "Por favor confirmar recepción.",
     ].join("\n");
-  };
 
   const generarPdfBlob = (registro) => {
     const doc = createDoc();
@@ -406,8 +395,6 @@ const HojaRegistroHoras = () => {
 
       setPreviewUrl(url);
       setPreviewName(name);
-
-      // Abrir visor nativo
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e) {
       console.error(e);
@@ -431,7 +418,7 @@ const HojaRegistroHoras = () => {
 
     const blob = generarPdfBlob(registro);
 
-    // 1) móvil: share nativo (archivo completo)
+    // 1) móvil: share nativo
     try {
       if (navigator.share && navigator.canShare) {
         const file = new File([blob], fileName, { type: "application/pdf" });
@@ -448,32 +435,13 @@ const HojaRegistroHoras = () => {
       console.warn("Share falló:", e);
     }
 
-    // 2) desktop: abrir chat + descargar para adjuntar manual
+    // 2) fallback (debería no usarse si está oculto en PC)
     const msg =
       buildReportMessage(registro) +
       "\n\n⚠️ *En PC:* WhatsApp Web no permite adjuntar este PDF automáticamente.\n" +
       "1) Descarga el PDF\n2) Adjunta el archivo manualmente en el chat.";
-
     const waUrl = buildWhatsAppLink(SUPPORT_PHONE, msg);
-    const win = window.open(waUrl, "_blank", "noopener,noreferrer");
-
-    if (!win) {
-      try {
-        await navigator.clipboard.writeText(msg);
-        alert(
-          "Tu navegador bloqueó la ventana de WhatsApp.\n\n" +
-            "✅ Copié el mensaje al portapapeles.\n" +
-            "Abre WhatsApp y pégalo. Luego adjunta el PDF descargado."
-        );
-      } catch {
-        alert(
-          "Tu navegador bloqueó la ventana de WhatsApp.\n" +
-            "Abre WhatsApp manualmente y envía el reporte. Luego adjunta el PDF descargado."
-        );
-      }
-    }
-
-    descargarPdfDesdeRegistro(registro);
+    window.open(waUrl, "_blank", "noopener,noreferrer");
   };
 
   /* ====== FIRMA ====== */
@@ -530,10 +498,7 @@ const HojaRegistroHoras = () => {
       setImagenChasisUrl(null);
       return;
     }
-    const dataUrl = await compressImageFileToDataUrl(file, {
-      maxDim: 1280,
-      quality: 0.75,
-    });
+    const dataUrl = await compressImageFileToDataUrl(file, { maxDim: 1280, quality: 0.75 });
     setImagenChasisUrl(dataUrl);
     e.target.value = "";
   };
@@ -559,7 +524,6 @@ const HojaRegistroHoras = () => {
   const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
   const dataTextAreaClass = "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
-  // Guardar (sin descargar)
   const handleGuardarRegistro = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -648,7 +612,9 @@ const HojaRegistroHoras = () => {
       {vista === "list" && (
         <div className="w-full max-w-5xl bg-white border border-slate-300 rounded p-3 text-[11px] md:text-xs">
           <div className="flex justify-between items-center mb-3">
-            <h1 className="font-bold text-sm md:text-base">Registros de horas y kilometrajes</h1>
+            <h1 className="font-bold text-sm md:text-base">
+              Registros de horas y kilometrajes
+            </h1>
             <button
               type="button"
               onClick={() => setVista("form")}
@@ -659,7 +625,9 @@ const HojaRegistroHoras = () => {
           </div>
 
           {registros.length === 0 ? (
-            <p className="text-[11px] text-slate-500">No hay registros guardados en este navegador.</p>
+            <p className="text-[11px] text-slate-500">
+              No hay registros guardados en este navegador.
+            </p>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -691,6 +659,7 @@ const HojaRegistroHoras = () => {
                             >
                               Ver PDF
                             </button>
+
                             <button
                               type="button"
                               onClick={() => descargarPdfDesdeRegistro(r)}
@@ -699,14 +668,16 @@ const HojaRegistroHoras = () => {
                               Descargar PDF
                             </button>
 
-                            {/* ✅ Solo celular + tablet (se oculta en PC) */}
-                            <button
-                              type="button"
-                              onClick={() => enviarPdfPorWhatsApp(r)}
-                              className="px-2 py-1 border border-green-600 rounded text-[10px] text-green-700 hover:bg-green-50 lg:hidden"
-                            >
-                              Enviar WhatsApp
-                            </button>
+                            {/* ✅ SOLO SI ES DISPOSITIVO MÓVIL/TABLET (aunque rote) */}
+                            {isMobileDevice && (
+                              <button
+                                type="button"
+                                onClick={() => enviarPdfPorWhatsApp(r)}
+                                className="px-2 py-1 border border-green-600 rounded text-[10px] text-green-700 hover:bg-green-50"
+                              >
+                                Enviar WhatsApp
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -748,11 +719,18 @@ const HojaRegistroHoras = () => {
             >
               ← Volver al listado
             </button>
-            <span className="text-[11px] md:text-xs text-slate-600">Llenando nuevo reporte</span>
+            <span className="text-[11px] md:text-xs text-slate-600">
+              Llenando nuevo reporte
+            </span>
           </div>
 
-          <form onSubmit={handleGuardarRegistro} className="w-full max-w-5xl text-[11px] md:text-xs">
+          <form
+            onSubmit={handleGuardarRegistro}
+            className="w-full max-w-5xl text-[11px] md:text-xs"
+          >
+            {/* (FORMULARIO: se mantiene igual que lo último que usabas) */}
             <div className="bg-white border-4 border-blue-600 w-full">
+              {/* Encabezado */}
               <div className="flex border-b border-black">
                 <div className="w-28 md:w-32 border-r border-black flex items-center justify-center p-2">
                   <span className="font-bold text-lg uppercase">ASTAP</span>
@@ -764,6 +742,7 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
+              {/* Número de equipo */}
               <div className="flex border-b border-black">
                 <div className="flex-1 border-r border-black">
                   <div className="flex">
@@ -776,6 +755,7 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
+              {/* Fecha / Ubicación / Cliente / Responsable */}
               <div className="border-b border-black grid grid-cols-1 md:grid-cols-2">
                 <div className="border-b md:border-b-0 md:border-r border-black">
                   <div className="flex">
@@ -832,7 +812,10 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
-              <div className="border-b border-black text-center py-1 font-semibold uppercase">Chasis</div>
+              {/* Chasis */}
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">
+                Chasis
+              </div>
 
               <div className="grid grid-cols-3 border-b border-black">
                 <div className="col-span-2 flex">
@@ -874,7 +857,10 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
-              <div className="border-b border-black text-center py-1 font-semibold uppercase">Módulo</div>
+              {/* Módulo */}
+              <div className="border-b border-black text-center py-1 font-semibold uppercase">
+                Módulo
+              </div>
 
               <div className="flex border-b border-black">
                 <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
@@ -938,6 +924,7 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
+              {/* Firma */}
               <div className="border-b border-black px-4 py-3">
                 <div className="border border-black h-24 flex flex-col">
                   <canvas
