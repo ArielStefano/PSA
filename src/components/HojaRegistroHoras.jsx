@@ -1,17 +1,5 @@
-// src/components/HojaRegistroHoras.jsx
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
-
-// ✅ Visor PDF interno
-import { Document, Page, pdfjs } from "react-pdf";
-import "react-pdf/dist/esm/Page/AnnotationLayer.css";
-import "react-pdf/dist/esm/Page/TextLayer.css";
-
-// Worker PDF.js (Vite friendly)
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
 
 /** ======================
  *  CONFIG WHATSAPP
@@ -32,7 +20,10 @@ const createDoc = () =>
 
 const detectImageFormat = (dataUrl) => {
   if (!dataUrl || typeof dataUrl !== "string") return "PNG";
-  if (dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg"))
+  if (
+    dataUrl.startsWith("data:image/jpeg") ||
+    dataUrl.startsWith("data:image/jpg")
+  )
     return "JPEG";
   if (dataUrl.startsWith("data:image/png")) return "PNG";
   return "PNG";
@@ -40,7 +31,6 @@ const detectImageFormat = (dataUrl) => {
 
 const addFittedImage = (doc, dataUrl, x, y, boxW, boxH) => {
   if (!dataUrl) return;
-
   const format = detectImageFormat(dataUrl);
   const props = doc.getImageProperties(dataUrl);
   const ratio = Math.min(boxW / props.width, boxH / props.height);
@@ -48,7 +38,6 @@ const addFittedImage = (doc, dataUrl, x, y, boxW, boxH) => {
   const h = props.height * ratio;
   const offsetX = x + (boxW - w) / 2;
   const offsetY = y + (boxH - h) / 2;
-
   doc.addImage(dataUrl, format, offsetX, offsetY, w, h, undefined, "FAST");
 };
 
@@ -191,7 +180,7 @@ const buildPdf = (doc, data) => {
 
   y += horasBoxHeight + 10;
 
-  // DETALLES
+  // DETALLES + FOTO
   drawSectionHeader(doc, "DETALLES", y, pageWidth, margin);
   y += 9;
 
@@ -214,7 +203,7 @@ const buildPdf = (doc, data) => {
 
   y += detallesBoxHeight + 10;
 
-  // FOTOS DEL EQUIPO
+  // FOTOS DEL EQUIPO (multi página)
   if (imagenesRestantes.length > 0) {
     drawSectionHeader(doc, "FOTOS DEL EQUIPO", y, pageWidth, margin);
     y += 9;
@@ -256,7 +245,6 @@ const buildPdf = (doc, data) => {
   // FIRMAS
   const firmaBoxH = 25;
   const firmasEstimated = 9 + 7 + firmaBoxH + 15;
-
   if (y + firmasEstimated > pageHeight - margin) {
     doc.addPage();
     drawTopHeader(doc, pageWidth, margin);
@@ -271,10 +259,7 @@ const buildPdf = (doc, data) => {
   doc.text("Responsable equipo:", margin + 2, y + 5);
   doc.rect(margin, y + 7, firmaBoxW, firmaBoxH);
 
-  if (firmaDataUrl) {
-    addFittedImage(doc, firmaDataUrl, margin, y + 7, firmaBoxW, firmaBoxH);
-  }
-
+  if (firmaDataUrl) addFittedImage(doc, firmaDataUrl, margin, y + 7, firmaBoxW, firmaBoxH);
   doc.setFont("helvetica", "normal");
   doc.text(responsableEquipo || "", margin, y + 7 + firmaBoxH + 5);
 };
@@ -283,41 +268,35 @@ const buildPdf = (doc, data) => {
 
 const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}) =>
   new Promise((resolve) => {
-    try {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        const w = img.width;
-        const h = img.height;
-        const scale = Math.min(1, maxDim / Math.max(w, h));
-        const nw = Math.round(w * scale);
-        const nh = Math.round(h * scale);
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const w = img.width;
+      const h = img.height;
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      const nw = Math.round(w * scale);
+      const nh = Math.round(h * scale);
 
-        const canvas = document.createElement("canvas");
-        canvas.width = nw;
-        canvas.height = nh;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, nw, nh);
+      const canvas = document.createElement("canvas");
+      canvas.width = nw;
+      canvas.height = nh;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, nw, nh);
 
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
-        URL.revokeObjectURL(url);
-        resolve(dataUrl);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        const fr = new FileReader();
-        fr.onload = () => resolve(fr.result);
-        fr.readAsDataURL(file);
-      };
-      img.src = url;
-    } catch {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      URL.revokeObjectURL(url);
+      resolve(dataUrl);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
       const fr = new FileReader();
       fr.onload = () => resolve(fr.result);
       fr.readAsDataURL(file);
-    }
+    };
+    img.src = url;
   });
 
-/* ====================== WHATSAPP HELPERS ====================== */
+/* ====================== WHATSAPP ====================== */
 
 const buildWhatsAppLink = (phone, message) => {
   const text = encodeURIComponent(message || "");
@@ -325,7 +304,7 @@ const buildWhatsAppLink = (phone, message) => {
   return `https://wa.me/?text=${text}`;
 };
 
-/* ====================== COMPONENTE ====================== */
+/* ====================== COMPONENT ====================== */
 
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
@@ -335,13 +314,11 @@ const HojaRegistroHoras = () => {
   const [vista, setVista] = useState("list");
   const [registros, setRegistros] = useState([]);
 
-  // WhatsApp FAB colapsable
   const [waOpen, setWaOpen] = useState(false);
 
-  // ✅ Preview PDF interno (bytes)
-  const [pdfBytes, setPdfBytes] = useState(null);
-  const [pdfPreviewName, setPdfPreviewName] = useState("reporte.pdf");
-  const [numPages, setNumPages] = useState(0);
+  // ✅ Guardamos el último PDF generado para "Ver PDF"
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewName, setPreviewName] = useState("");
 
   // fecha
   const [dia, setDia] = useState(() => String(new Date().getDate()).padStart(2, "0"));
@@ -357,24 +334,17 @@ const HojaRegistroHoras = () => {
       const stored = localStorage.getItem("registrosHrsKm");
       if (stored) setRegistros(JSON.parse(stored));
     } catch (err) {
-      console.error("Error leyendo registros:", err);
+      console.error(err);
     }
   }, []);
 
-  // Bloquear scroll mientras firma en touch
+  // limpiar blob url al desmontar / cambiar
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const prevent = (e) => e.preventDefault();
-    canvas.addEventListener("touchstart", prevent, { passive: false });
-    canvas.addEventListener("touchmove", prevent, { passive: false });
-
     return () => {
-      canvas.removeEventListener("touchstart", prevent);
-      canvas.removeEventListener("touchmove", prevent);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
-  }, [vista]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const guardarRegistroLocal = (registro) => {
     setRegistros((prev) => {
@@ -382,8 +352,7 @@ const HojaRegistroHoras = () => {
       try {
         localStorage.setItem("registrosHrsKm", JSON.stringify(updated));
       } catch (err) {
-        console.error("No se pudo guardar en localStorage:", err);
-        alert("⚠️ No se pudo guardar (límite de almacenamiento). Usa menos fotos o menor calidad.");
+        alert("⚠️ No se pudo guardar (límite de almacenamiento). Reduce fotos o calidad.");
       }
       return updated;
     });
@@ -399,32 +368,37 @@ const HojaRegistroHoras = () => {
       `📍 *Ubicación:* ${r.ubicacion || "-"}`,
       "",
       "Adjunto el PDF del reporte.",
-      "Por favor confirmar recepción.",
+      "Por favor confirmar recepción."
     ].join("\n");
   };
 
-  // ✅ Genera bytes del PDF (lo más compatible con react-pdf)
-  const generatePdfBytes = (registro) => {
+  const generarPdfBlob = (registro) => {
     const doc = createDoc();
     buildPdf(doc, registro);
-    const ab = doc.output("arraybuffer");
-    return new Uint8Array(ab);
+    return doc.output("blob");
   };
 
-  const verPdfDesdeRegistro = (registro) => {
-    const bytes = generatePdfBytes(registro);
-    const fileName = registro.numeroEquipo?.trim()
-      ? `hoja-registro-${registro.numeroEquipo}.pdf`
-      : "hoja-registro.pdf";
+  const verPdfDesdeRegistro = async (registro) => {
+    try {
+      // Revoca el anterior
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
 
-    setPdfPreviewName(fileName);
-    setNumPages(0);
-    setPdfBytes(bytes);
-  };
+      const blob = generarPdfBlob(registro);
+      const url = URL.createObjectURL(blob);
 
-  const cerrarPreviewPdf = () => {
-    setPdfBytes(null);
-    setNumPages(0);
+      const name = registro.numeroEquipo?.trim()
+        ? `hoja-registro-${registro.numeroEquipo}.pdf`
+        : "hoja-registro.pdf";
+
+      setPreviewUrl(url);
+      setPreviewName(name);
+
+      // ✅ Como la primera vez: abre visor nativo
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error(e);
+      alert("No se pudo abrir el PDF.");
+    }
   };
 
   const descargarPdfDesdeRegistro = (registro) => {
@@ -441,10 +415,7 @@ const HojaRegistroHoras = () => {
       ? `hoja-registro-${registro.numeroEquipo}.pdf`
       : "hoja-registro.pdf";
 
-    // Genera blob para compartir
-    const doc = createDoc();
-    buildPdf(doc, registro);
-    const blob = doc.output("blob");
+    const blob = generarPdfBlob(registro);
 
     try {
       if (navigator.share && navigator.canShare) {
@@ -462,11 +433,10 @@ const HojaRegistroHoras = () => {
       console.warn("Share falló:", e);
     }
 
-    // Fallback
-    const msg =
-      buildReportMessage(registro) + "\n\n⚠️ *Nota:* Adjunta el PDF descargado a este chat.";
+    // Fallback: abre WhatsApp con texto + descarga para adjuntar
+    const msg = buildReportMessage(registro) + "\n\n⚠️ *Nota:* Adjunta el PDF descargado a este chat.";
     window.open(buildWhatsAppLink(SUPPORT_PHONE, msg), "_blank");
-    doc.save(fileName);
+    descargarPdfDesdeRegistro(registro);
   };
 
   /* ====== FIRMA ====== */
@@ -481,6 +451,7 @@ const HojaRegistroHoras = () => {
   };
 
   const startDrawing = (e) => {
+    if (e.touches) e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -495,6 +466,7 @@ const HojaRegistroHoras = () => {
 
   const draw = (e) => {
     if (!isDrawing) return;
+    if (e.touches) e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -503,7 +475,10 @@ const HojaRegistroHoras = () => {
     ctx.stroke();
   };
 
-  const stopDrawing = () => setIsDrawing(false);
+  const stopDrawing = (e) => {
+    if (e?.touches) e.preventDefault();
+    setIsDrawing(false);
+  };
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
@@ -526,7 +501,6 @@ const HojaRegistroHoras = () => {
   const handleImagenesChange = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-
     const compressed = await Promise.all(
       files.map((f) => compressImageFileToDataUrl(f, { maxDim: 1280, quality: 0.75 }))
     );
@@ -545,10 +519,7 @@ const HojaRegistroHoras = () => {
   const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
   const dataTextAreaClass = "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
-  /** ✅ CAMBIO 1:
-   *  Aquí YA NO descargamos el PDF automáticamente.
-   *  Solo guardamos el registro y volvemos al listado.
-   */
+  // ✅ Guardar (SIN descargar)
   const handleGuardarRegistro = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -586,10 +557,13 @@ const HojaRegistroHoras = () => {
 
   const soporteLink = buildWhatsAppLink(SUPPORT_PHONE, SUPPORT_DEFAULT_MESSAGE);
 
-  // FAB: subirlo en formulario para que NO tape botones
+  // FAB subido en formulario para no tapar botones
   const fabStyle = useMemo(() => {
     const baseBottom = vista === "form" ? 120 : 16;
-    return { right: "16px", bottom: `calc(${baseBottom}px + env(safe-area-inset-bottom))` };
+    return {
+      right: "16px",
+      bottom: `calc(${baseBottom}px + env(safe-area-inset-bottom))`,
+    };
   }, [vista]);
 
   return (
@@ -678,7 +652,6 @@ const HojaRegistroHoras = () => {
                             >
                               Ver PDF
                             </button>
-
                             <button
                               type="button"
                               onClick={() => descargarPdfDesdeRegistro(r)}
@@ -686,7 +659,6 @@ const HojaRegistroHoras = () => {
                             >
                               Descargar PDF
                             </button>
-
                             <button
                               type="button"
                               onClick={() => enviarPdfPorWhatsApp(r)}
@@ -705,12 +677,27 @@ const HojaRegistroHoras = () => {
               <p className="mt-2 text-[10px] text-slate-500">
                 * Estos registros se guardan en este navegador (localStorage).
               </p>
+
+              {/* Opcional: mostrar último preview generado */}
+              {previewUrl && (
+                <div className="mt-3 text-[11px] text-slate-700">
+                  Último PDF generado:{" "}
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-700 underline"
+                  >
+                    {previewName || "Abrir"}
+                  </a>
+                </div>
+              )}
             </>
           )}
         </div>
       )}
 
-      {/* FORMULARIO */}
+      {/* FORM */}
       {vista === "form" && (
         <>
           <div className="w-full max-w-5xl flex justify-between items-center mb-2">
@@ -724,10 +711,8 @@ const HojaRegistroHoras = () => {
             <span className="text-[11px] md:text-xs text-slate-600">Llenando nuevo reporte</span>
           </div>
 
-          {/* ✅ CAMBIO: botón ahora es "Guardar reporte" (no descarga) */}
           <form onSubmit={handleGuardarRegistro} className="w-full max-w-5xl text-[11px] md:text-xs">
             <div className="bg-white border-4 border-blue-600 w-full">
-              {/* ENCABEZADO */}
               <div className="flex border-b border-black">
                 <div className="w-28 md:w-32 border-r border-black flex items-center justify-center p-2">
                   <span className="font-bold text-lg uppercase">ASTAP</span>
@@ -739,7 +724,6 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
-              {/* NÚMERO DE EQUIPO */}
               <div className="flex border-b border-black">
                 <div className="flex-1 border-r border-black">
                   <div className="flex">
@@ -752,7 +736,6 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
-              {/* FECHA / UBICACIÓN / CLIENTE / RESPONSABLE */}
               <div className="border-b border-black grid grid-cols-1 md:grid-cols-2">
                 <div className="border-b md:border-b-0 md:border-r border-black">
                   <div className="flex">
@@ -762,19 +745,16 @@ const HojaRegistroHoras = () => {
                     <div className="flex-1 grid grid-cols-3">
                       <input
                         className="border-r border-black px-1 py-1 text-[10px] md:text-[11px] outline-none text-center text-blue-600"
-                        name="dia"
                         value={dia}
                         onChange={(e) => setDia(e.target.value)}
                       />
                       <input
                         className="border-r border-black px-1 py-1 text-[10px] md:text-[11px] outline-none text-center text-blue-600"
-                        name="mes"
                         value={mes}
                         onChange={(e) => setMes(e.target.value)}
                       />
                       <input
                         className="px-1 py-1 text-[10px] md:text-[11px] outline-none text-center text-blue-600"
-                        name="anio"
                         value={anio}
                         onChange={(e) => setAnio(e.target.value)}
                       />
@@ -812,7 +792,6 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
-              {/* CHASIS */}
               <div className="border-b border-black text-center py-1 font-semibold uppercase">Chasis</div>
 
               <div className="grid grid-cols-3 border-b border-black">
@@ -824,7 +803,9 @@ const HojaRegistroHoras = () => {
                 </div>
 
                 <div className="border-l border-black flex flex-col">
-                  <div className="border-b border-black text-center py-1 font-semibold uppercase">Imagen</div>
+                  <div className="border-b border-black text-center py-1 font-semibold uppercase">
+                    Imagen
+                  </div>
                   <div className="flex-1 flex flex-col items-center justify-center px-1 text-center gap-1 py-1">
                     <span className="text-[10px]">Adjuntar imagen / foto del chasis</span>
                     <div className="flex flex-wrap gap-2">
@@ -879,9 +860,10 @@ const HojaRegistroHoras = () => {
                 <textarea className={`${dataTextAreaClass} h-20`} name="detalles" />
               </div>
 
-              {/* IMÁGENES */}
               <div className="flex border-b border-black">
-                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">Imágenes:</label>
+                <label className="w-40 border-r border-black px-2 py-1 font-semibold uppercase">
+                  Imágenes:
+                </label>
                 <div className="flex-1 flex flex-col px-2 py-1 gap-2">
                   <div className="flex flex-wrap gap-2">
                     <label className="px-2 py-1 border border-blue-600 rounded text-[10px] text-blue-600 hover:bg-blue-50 cursor-pointer">
@@ -916,7 +898,6 @@ const HojaRegistroHoras = () => {
                 </div>
               </div>
 
-              {/* FIRMA */}
               <div className="border-b border-black px-4 py-3">
                 <div className="border border-black h-24 flex flex-col">
                   <canvas
@@ -958,7 +939,6 @@ const HojaRegistroHoras = () => {
                 Cancelar
               </button>
 
-              {/* ✅ Ya NO descarga, SOLO guarda */}
               <button
                 type="submit"
                 className="px-4 py-2 text-xs md:text-sm border border-blue-600 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
@@ -968,40 +948,6 @@ const HojaRegistroHoras = () => {
             </div>
           </form>
         </>
-      )}
-
-      {/* ✅ MODAL VISOR PDF (SCROLL VERTICAL) */}
-      {pdfBytes && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-3">
-          <div className="w-full max-w-5xl h-[88vh] bg-white rounded-lg shadow-xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-3 py-2 border-b bg-slate-50">
-              <div className="text-sm font-semibold truncate">Vista previa: {pdfPreviewName}</div>
-              <button
-                type="button"
-                onClick={cerrarPreviewPdf}
-                className="px-3 py-1 rounded border text-sm hover:bg-slate-100"
-              >
-                Cerrar
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto p-2 bg-slate-100">
-              <Document
-                file={{ data: pdfBytes }}
-                onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                onLoadError={(err) => console.error("PDF load error:", err)}
-                loading={<div className="p-4 text-center">Cargando PDF...</div>}
-                error={<div className="p-4 text-center text-red-600">No se pudo abrir el PDF.</div>}
-              >
-                {Array.from({ length: numPages || 0 }).map((_, i) => (
-                  <div key={i} className="mb-3 flex justify-center">
-                    <Page pageNumber={i + 1} width={Math.min(980, window.innerWidth - 32)} />
-                  </div>
-                ))}
-              </Document>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
