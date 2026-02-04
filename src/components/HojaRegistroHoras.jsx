@@ -18,6 +18,7 @@ const ASTAP_LOGO_BASE64 = null;
 const createDoc = () =>
   new jsPDF({ orientation: "l", unit: "mm", format: "a4", compress: true });
 
+// Detecta el formato real desde el dataURL
 const detectImageFormat = (dataUrl) => {
   if (!dataUrl || typeof dataUrl !== "string") return "PNG";
   if (
@@ -298,13 +299,13 @@ const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}
 
 /* ====================== WHATSAPP ====================== */
 
+// ✅ Más compatible en Chrome/desktop que wa.me
 const buildWhatsAppLink = (phone, message) => {
   const text = encodeURIComponent(message || "");
-  if (phone && phone.trim()) return `https://wa.me/${phone}?text=${text}`;
-  return `https://wa.me/?text=${text}`;
+  const cleanPhone = (phone || "").replace(/\D/g, "");
+  if (cleanPhone) return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${text}`;
+  return `https://api.whatsapp.com/send?text=${text}`;
 };
-
-/* ====================== COMPONENT ====================== */
 
 const HojaRegistroHoras = () => {
   const [responsableEquipo, setResponsableEquipo] = useState("");
@@ -316,7 +317,7 @@ const HojaRegistroHoras = () => {
 
   const [waOpen, setWaOpen] = useState(false);
 
-  // ✅ Guardamos el último PDF generado para "Ver PDF"
+  // preview (blob url)
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewName, setPreviewName] = useState("");
 
@@ -338,7 +339,6 @@ const HojaRegistroHoras = () => {
     }
   }, []);
 
-  // limpiar blob url al desmontar / cambiar
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -378,9 +378,8 @@ const HojaRegistroHoras = () => {
     return doc.output("blob");
   };
 
-  const verPdfDesdeRegistro = async (registro) => {
+  const verPdfDesdeRegistro = (registro) => {
     try {
-      // Revoca el anterior
       if (previewUrl) URL.revokeObjectURL(previewUrl);
 
       const blob = generarPdfBlob(registro);
@@ -393,7 +392,7 @@ const HojaRegistroHoras = () => {
       setPreviewUrl(url);
       setPreviewName(name);
 
-      // ✅ Como la primera vez: abre visor nativo
+      // visor nativo
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e) {
       console.error(e);
@@ -417,6 +416,7 @@ const HojaRegistroHoras = () => {
 
     const blob = generarPdfBlob(registro);
 
+    // ✅ 1) móvil: share nativo con archivo completo
     try {
       if (navigator.share && navigator.canShare) {
         const file = new File([blob], fileName, { type: "application/pdf" });
@@ -433,9 +433,33 @@ const HojaRegistroHoras = () => {
       console.warn("Share falló:", e);
     }
 
-    // Fallback: abre WhatsApp con texto + descarga para adjuntar
-    const msg = buildReportMessage(registro) + "\n\n⚠️ *Nota:* Adjunta el PDF descargado a este chat.";
-    window.open(buildWhatsAppLink(SUPPORT_PHONE, msg), "_blank");
+    // ✅ 2) desktop chrome: abrir chat con api.whatsapp.com (evita pantalla gris)
+    const msg =
+      buildReportMessage(registro) +
+      "\n\n⚠️ *En PC:* WhatsApp Web no permite adjuntar este PDF automáticamente.\n" +
+      "1) Descarga el PDF\n2) Adjunta el archivo manualmente en el chat.";
+
+    const waUrl = buildWhatsAppLink(SUPPORT_PHONE, msg);
+
+    // Popup safe
+    const win = window.open(waUrl, "_blank", "noopener,noreferrer");
+    if (!win) {
+      try {
+        await navigator.clipboard.writeText(msg);
+        alert(
+          "Tu navegador bloqueó la ventana de WhatsApp.\n\n" +
+            "✅ Copié el mensaje al portapapeles.\n" +
+            "Abre WhatsApp y pégalo. Luego adjunta el PDF descargado."
+        );
+      } catch {
+        alert(
+          "Tu navegador bloqueó la ventana de WhatsApp.\n" +
+            "Abre WhatsApp manualmente y envía el reporte. Luego adjunta el PDF descargado."
+        );
+      }
+    }
+
+    // Descargar como ayuda para adjuntar en WhatsApp Web
     descargarPdfDesdeRegistro(registro);
   };
 
@@ -678,7 +702,6 @@ const HojaRegistroHoras = () => {
                 * Estos registros se guardan en este navegador (localStorage).
               </p>
 
-              {/* Opcional: mostrar último preview generado */}
               {previewUrl && (
                 <div className="mt-3 text-[11px] text-slate-700">
                   Último PDF generado:{" "}
