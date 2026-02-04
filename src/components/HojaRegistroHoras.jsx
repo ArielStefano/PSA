@@ -102,8 +102,10 @@ const buildPdf = (doc, data) => {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
 
-  const imagenPrincipalDetalles = imagenesUrls.length > 0 ? imagenesUrls[0] : null;
-  const imagenesRestantes = imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
+  const imagenPrincipalDetalles =
+    imagenesUrls.length > 0 ? imagenesUrls[0] : null;
+  const imagenesRestantes =
+    imagenesUrls.length > 1 ? imagenesUrls.slice(1) : [];
 
   drawTopHeader(doc, pageWidth, margin);
   let y = 22;
@@ -150,7 +152,14 @@ const buildPdf = (doc, data) => {
   doc.text("Imagen chasis:", imgX, y + 5);
   doc.rect(imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
   if (imagenChasisUrl) {
-    addFittedImage(doc, imagenChasisUrl, imgX, y + 7, chasisImgWidth, chasisBoxHeight - 7);
+    addFittedImage(
+      doc,
+      imagenChasisUrl,
+      imgX,
+      y + 7,
+      chasisImgWidth,
+      chasisBoxHeight - 7
+    );
   }
 
   y += chasisBoxHeight + 10;
@@ -199,7 +208,14 @@ const buildPdf = (doc, data) => {
   const detallesImgX = margin + detallesTextWidth + 4;
   doc.rect(detallesImgX, y, detallesImgWidth, detallesBoxHeight);
   if (imagenPrincipalDetalles) {
-    addFittedImage(doc, imagenPrincipalDetalles, detallesImgX, y, detallesImgWidth, detallesBoxHeight);
+    addFittedImage(
+      doc,
+      imagenPrincipalDetalles,
+      detallesImgX,
+      y,
+      detallesImgWidth,
+      detallesBoxHeight
+    );
   }
 
   y += detallesBoxHeight + 10;
@@ -221,7 +237,13 @@ const buildPdf = (doc, data) => {
         doc.addPage();
         drawTopHeader(doc, pageWidth, margin);
         let y2 = 22;
-        drawSectionHeader(doc, "FOTOS DEL EQUIPO (CONTINUACIÓN)", y2, pageWidth, margin);
+        drawSectionHeader(
+          doc,
+          "FOTOS DEL EQUIPO (CONTINUACIÓN)",
+          y2,
+          pageWidth,
+          margin
+        );
         y2 += 9;
         fotoX = margin;
         fotoY = y2;
@@ -259,7 +281,6 @@ const buildPdf = (doc, data) => {
   doc.setFont("helvetica", "bold");
   doc.text("Responsable equipo:", margin + 2, y + 5);
   doc.rect(margin, y + 7, firmaBoxW, firmaBoxH);
-
   if (firmaDataUrl) addFittedImage(doc, firmaDataUrl, margin, y + 7, firmaBoxW, firmaBoxH);
   doc.setFont("helvetica", "normal");
   doc.text(responsableEquipo || "", margin, y + 7 + firmaBoxH + 5);
@@ -299,7 +320,6 @@ const compressImageFileToDataUrl = (file, { maxDim = 1280, quality = 0.75 } = {}
 
 /* ====================== WHATSAPP ====================== */
 
-// ✅ Más compatible en Chrome/desktop que wa.me
 const buildWhatsAppLink = (phone, message) => {
   const text = encodeURIComponent(message || "");
   const cleanPhone = (phone || "").replace(/\D/g, "");
@@ -317,16 +337,13 @@ const HojaRegistroHoras = () => {
 
   const [waOpen, setWaOpen] = useState(false);
 
-  // preview (blob url)
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewName, setPreviewName] = useState("");
 
-  // fecha
   const [dia, setDia] = useState(() => String(new Date().getDate()).padStart(2, "0"));
   const [mes, setMes] = useState(() => String(new Date().getMonth() + 1).padStart(2, "0"));
   const [anio, setAnio] = useState(() => String(new Date().getFullYear()));
 
-  // firma
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
@@ -343,8 +360,7 @@ const HojaRegistroHoras = () => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [previewUrl]);
 
   const guardarRegistroLocal = (registro) => {
     setRegistros((prev) => {
@@ -368,7 +384,7 @@ const HojaRegistroHoras = () => {
       `📍 *Ubicación:* ${r.ubicacion || "-"}`,
       "",
       "Adjunto el PDF del reporte.",
-      "Por favor confirmar recepción."
+      "Por favor confirmar recepción.",
     ].join("\n");
   };
 
@@ -381,7 +397,6 @@ const HojaRegistroHoras = () => {
   const verPdfDesdeRegistro = (registro) => {
     try {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
-
       const blob = generarPdfBlob(registro);
       const url = URL.createObjectURL(blob);
 
@@ -392,7 +407,7 @@ const HojaRegistroHoras = () => {
       setPreviewUrl(url);
       setPreviewName(name);
 
-      // visor nativo
+      // Abrir visor nativo
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e) {
       console.error(e);
@@ -416,7 +431,7 @@ const HojaRegistroHoras = () => {
 
     const blob = generarPdfBlob(registro);
 
-    // ✅ 1) móvil: share nativo con archivo completo
+    // 1) móvil: share nativo (archivo completo)
     try {
       if (navigator.share && navigator.canShare) {
         const file = new File([blob], fileName, { type: "application/pdf" });
@@ -433,16 +448,15 @@ const HojaRegistroHoras = () => {
       console.warn("Share falló:", e);
     }
 
-    // ✅ 2) desktop chrome: abrir chat con api.whatsapp.com (evita pantalla gris)
+    // 2) desktop: abrir chat + descargar para adjuntar manual
     const msg =
       buildReportMessage(registro) +
       "\n\n⚠️ *En PC:* WhatsApp Web no permite adjuntar este PDF automáticamente.\n" +
       "1) Descarga el PDF\n2) Adjunta el archivo manualmente en el chat.";
 
     const waUrl = buildWhatsAppLink(SUPPORT_PHONE, msg);
-
-    // Popup safe
     const win = window.open(waUrl, "_blank", "noopener,noreferrer");
+
     if (!win) {
       try {
         await navigator.clipboard.writeText(msg);
@@ -459,7 +473,6 @@ const HojaRegistroHoras = () => {
       }
     }
 
-    // Descargar como ayuda para adjuntar en WhatsApp Web
     descargarPdfDesdeRegistro(registro);
   };
 
@@ -517,7 +530,10 @@ const HojaRegistroHoras = () => {
       setImagenChasisUrl(null);
       return;
     }
-    const dataUrl = await compressImageFileToDataUrl(file, { maxDim: 1280, quality: 0.75 });
+    const dataUrl = await compressImageFileToDataUrl(file, {
+      maxDim: 1280,
+      quality: 0.75,
+    });
     setImagenChasisUrl(dataUrl);
     e.target.value = "";
   };
@@ -543,7 +559,7 @@ const HojaRegistroHoras = () => {
   const dataInputClass = "flex-1 px-2 py-1 outline-none text-blue-600";
   const dataTextAreaClass = "flex-1 px-2 py-1 outline-none resize-none text-blue-600";
 
-  // ✅ Guardar (SIN descargar)
+  // Guardar (sin descargar)
   const handleGuardarRegistro = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -581,7 +597,6 @@ const HojaRegistroHoras = () => {
 
   const soporteLink = buildWhatsAppLink(SUPPORT_PHONE, SUPPORT_DEFAULT_MESSAGE);
 
-  // FAB subido en formulario para no tapar botones
   const fabStyle = useMemo(() => {
     const baseBottom = vista === "form" ? 120 : 16;
     return {
@@ -683,10 +698,12 @@ const HojaRegistroHoras = () => {
                             >
                               Descargar PDF
                             </button>
+
+                            {/* ✅ Solo celular + tablet (se oculta en PC) */}
                             <button
                               type="button"
                               onClick={() => enviarPdfPorWhatsApp(r)}
-                              className="px-2 py-1 border border-green-600 rounded text-[10px] text-green-700 hover:bg-green-50"
+                              className="px-2 py-1 border border-green-600 rounded text-[10px] text-green-700 hover:bg-green-50 lg:hidden"
                             >
                               Enviar WhatsApp
                             </button>
