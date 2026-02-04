@@ -2,18 +2,28 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
 
+// ✅ Visor PDF interno (funciona en Android/iPhone/PC)
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/esm/Page/AnnotationLayer.css";
+import "react-pdf/dist/esm/Page/TextLayer.css";
+
+// Worker PDF.js (Vite friendly)
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
+
 /** ======================
  *  CONFIG WHATSAPP
  *  ====================== */
 const SUPPORT_PHONE = "593958897066"; // sin "+", sin espacios
-
 const SUPPORT_DEFAULT_MESSAGE =
   "Hola, necesito soporte con un reporte generado en CONTROL HORAS Y KM (ASTAP).";
 
 /** ======================
  *  LOGO PDF (opcional)
  *  ====================== */
-// Si quieres usar logo, puedes poner aquí un dataURL base64 (PNG/JPEG).
+// Si quieres usar logo, reemplaza con dataURL base64.
 const ASTAP_LOGO_BASE64 = null;
 
 /* ====================== PDF HELPERS ====================== */
@@ -43,7 +53,6 @@ const addFittedImage = (doc, dataUrl, x, y, boxW, boxH) => {
   const offsetX = x + (boxW - w) / 2;
   const offsetY = y + (boxH - h) / 2;
 
-  // FAST = más liviano y estable en móvil
   doc.addImage(dataUrl, format, offsetX, offsetY, w, h, undefined, "FAST");
 };
 
@@ -297,7 +306,7 @@ const buildPdf = (doc, data) => {
   doc.text(responsableEquipo || "", margin, y + 7 + firmaBoxH + 5);
 };
 
-/* ====================== IMAGE COMPRESSION (BLINDADO) ====================== */
+/* ====================== IMAGE COMPRESSION ====================== */
 
 const compressImageFileToDataUrl = (
   file,
@@ -320,7 +329,7 @@ const compressImageFileToDataUrl = (
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, nw, nh);
 
-        const dataUrl = canvas.toDataURL("image/jpeg", quality); // reduce tamaño
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
         URL.revokeObjectURL(url);
         resolve(dataUrl);
       };
@@ -359,9 +368,10 @@ const HojaRegistroHoras = () => {
   // WhatsApp FAB colapsable
   const [waOpen, setWaOpen] = useState(false);
 
-  // ✅ Preview PDF dentro de la app
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+  // ✅ Preview PDF interno (react-pdf)
+  const [pdfBlob, setPdfBlob] = useState(null);
   const [pdfPreviewName, setPdfPreviewName] = useState("reporte.pdf");
+  const [numPages, setNumPages] = useState(0);
 
   // fecha actual
   const [dia, setDia] = useState(() =>
@@ -376,7 +386,17 @@ const HojaRegistroHoras = () => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // Evita scroll/lentitud en firma (touch no-passive)
+  useEffect(() => {
+    // carga localStorage
+    try {
+      const stored = localStorage.getItem("registrosHrsKm");
+      if (stored) setRegistros(JSON.parse(stored));
+    } catch (err) {
+      console.error("Error leyendo registros:", err);
+    }
+  }, []);
+
+  // Evita scroll/lag firmando (touch non-passive)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -391,23 +411,6 @@ const HojaRegistroHoras = () => {
     };
   }, [vista]);
 
-  // Cargar registros
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("registrosHrsKm");
-      if (stored) setRegistros(JSON.parse(stored));
-    } catch (err) {
-      console.error("Error leyendo registros:", err);
-    }
-  }, []);
-
-  // Liberar blob url si se cierra la página
-  useEffect(() => {
-    return () => {
-      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
-    };
-  }, [pdfPreviewUrl]);
-
   const guardarRegistroLocal = (registro) => {
     setRegistros((prev) => {
       const updated = [...prev, registro];
@@ -416,7 +419,7 @@ const HojaRegistroHoras = () => {
       } catch (err) {
         console.error("No se pudo guardar en localStorage:", err);
         alert(
-          "⚠️ No se pudo guardar (límite de localStorage). Menos fotos o menor calidad."
+          "⚠️ No se pudo guardar (límite de almacenamiento). Usa menos fotos o baja calidad."
         );
       }
       return updated;
@@ -444,24 +447,22 @@ const HojaRegistroHoras = () => {
     return doc.output("blob");
   };
 
-  // ✅ Ver PDF dentro de la app (modal)
+  // ✅ Ver PDF en modal (scroll vertical por páginas)
   const verPdfDesdeRegistro = (registro) => {
-    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
-
     const blob = generatePdfBlob(registro);
-    const url = URL.createObjectURL(blob);
 
     const fileName = registro.numeroEquipo?.trim()
       ? `hoja-registro-${registro.numeroEquipo}.pdf`
       : "hoja-registro.pdf";
 
     setPdfPreviewName(fileName);
-    setPdfPreviewUrl(url);
+    setNumPages(0);
+    setPdfBlob(blob);
   };
 
   const cerrarPreviewPdf = () => {
-    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
-    setPdfPreviewUrl(null);
+    setPdfBlob(null);
+    setNumPages(0);
   };
 
   const descargarPdfDesdeRegistro = (registro) => {
@@ -478,12 +479,14 @@ const HojaRegistroHoras = () => {
       ? `hoja-registro-${registro.numeroEquipo}.pdf`
       : "hoja-registro.pdf";
 
-    const pdfBlob = generatePdfBlob(registro);
+    const pdfBlobLocal = generatePdfBlob(registro);
 
     // SHARE NATIVO (celular): manda el PDF completo
     try {
       if (navigator.share && navigator.canShare) {
-        const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+        const file = new File([pdfBlobLocal], fileName, {
+          type: "application/pdf",
+        });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
@@ -582,7 +585,6 @@ const HojaRegistroHoras = () => {
     e.target.value = "";
   };
 
-  // 5x5 cm aprox en pantalla
   const imageBoxStyle = {
     width: "190px",
     height: "190px",
@@ -653,7 +655,7 @@ const HojaRegistroHoras = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-start p-4 gap-6">
-      {/* WHATSAPP FAB COLAPSABLE */}
+      {/* WHATSAPP FAB */}
       <div className="fixed z-50" style={fabStyle}>
         {waOpen && (
           <div className="mb-2 w-60 rounded-lg bg-white shadow-lg border border-slate-200 overflow-hidden">
@@ -738,7 +740,6 @@ const HojaRegistroHoras = () => {
                           {r.numeroEquipo}
                         </td>
                         <td className="border px-2 py-1">{r.ubicacion}</td>
-
                         <td className="border px-2 py-1">
                           <div className="flex gap-2 justify-center flex-wrap">
                             <button
@@ -1095,10 +1096,10 @@ const HojaRegistroHoras = () => {
         </>
       )}
 
-      {/* ✅ MODAL VISOR PDF (dentro de la app) */}
-      {pdfPreviewUrl && (
+      {/* ✅ MODAL VISOR PDF (SCROLL VERTICAL) */}
+      {pdfBlob && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-3">
-          <div className="w-full max-w-5xl h-[85vh] bg-white rounded-lg shadow-xl overflow-hidden flex flex-col">
+          <div className="w-full max-w-5xl h-[88vh] bg-white rounded-lg shadow-xl overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-3 py-2 border-b bg-slate-50">
               <div className="text-sm font-semibold truncate">
                 Vista previa: {pdfPreviewName}
@@ -1112,11 +1113,28 @@ const HojaRegistroHoras = () => {
               </button>
             </div>
 
-            <iframe
-              title="Vista previa PDF"
-              src={pdfPreviewUrl}
-              className="flex-1 w-full"
-            />
+            <div className="flex-1 overflow-auto p-2 bg-slate-100">
+              <Document
+                file={pdfBlob}
+                onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                loading={<div className="p-4 text-center">Cargando PDF...</div>}
+                error={
+                  <div className="p-4 text-center text-red-600">
+                    No se pudo abrir el PDF.
+                  </div>
+                }
+              >
+                {Array.from({ length: numPages || 0 }).map((_, i) => (
+                  <div key={i} className="mb-3 flex justify-center">
+                    {/* ✅ width responsive: se ajusta a pantalla */}
+                    <Page
+                      pageNumber={i + 1}
+                      width={Math.min(980, window.innerWidth - 32)}
+                    />
+                  </div>
+                ))}
+              </Document>
+            </div>
           </div>
         </div>
       )}
